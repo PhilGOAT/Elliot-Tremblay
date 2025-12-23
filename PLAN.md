@@ -30,10 +30,20 @@ Site de paris sportifs amical pour les matchs Xbox (Madden, NHL, FIFA, etc.) dep
 - [x] Paiement x2 sur les paris gagnes (mise 100 = gain 200)
 - [x] Remboursement en cas de match nul
 - [x] Historique des paris (Mes Paris)
-- [x] **3 types de paris:**
+- [x] **3 types de paris (seuils adaptes par sport):**
   - Gagnant: Parier sur qui va gagner
-  - Match serre: Parier si l'ecart sera <= 7 points (Oui/Non)
-  - Haut score: Parier si le score total sera >= 50 points (Oui/Non)
+  - Match serre: Parier si l'ecart sera faible (Oui/Non)
+  - Haut score: Parier si le score total sera eleve (Oui/Non)
+- [x] **Seuils par sport:**
+  | Sport   | Match Serre | Haut Score |
+  |---------|-------------|------------|
+  | Madden  | <= 7 pts    | >= 50 pts  |
+  | NHL     | <= 2 buts   | >= 8 buts  |
+  | FIFA    | <= 1 but    | >= 5 buts  |
+  | NBA2K   | <= 10 pts   | >= 200 pts |
+  | MLB     | <= 2 runs   | >= 12 runs |
+  | UFC     | = 0 rounds  | >= 3 rounds|
+  | Autre   | <= 3 pts    | >= 20 pts  |
 
 ### 4. Notifications
 - [x] Cloche de notifications dans la navbar
@@ -165,6 +175,15 @@ Site de paris sportifs amical pour les matchs Xbox (Madden, NHL, FIFA, etc.) dep
 - Pari "Match serre": ecart <= 7 points
 - Pari "Haut score": score total >= 50 points
 - Possibilite de parier sur chaque type pour un meme match
+
+### v1.4.1 - Seuils par Sport
+- Seuils adaptes pour chaque sport:
+  - Madden: 7 pts / 50 pts
+  - NHL: 2 buts / 8 buts
+  - FIFA: 1 but / 5 buts
+  - NBA2K: 10 pts / 200 pts
+  - MLB: 2 runs / 12 runs
+  - UFC: 0 rounds / 3 rounds
 
 ---
 

@@ -18,10 +18,23 @@ const betTypeLabels = {
   HIGH_SCORE: 'Haut score'
 };
 
-const betTypeDescriptions = {
-  WINNER: 'Parie sur le gagnant du match',
-  CLOSE_MATCH: 'Écart de 7 points ou moins?',
-  HIGH_SCORE: 'Score total de 50+ points?'
+// Seuils par sport
+const GAME_THRESHOLDS = {
+  MADDEN: { closeMatch: 7, highScore: 50, unit: 'pts' },
+  NHL: { closeMatch: 2, highScore: 8, unit: 'buts' },
+  FIFA: { closeMatch: 1, highScore: 5, unit: 'buts' },
+  NBA2K: { closeMatch: 10, highScore: 200, unit: 'pts' },
+  MLB: { closeMatch: 2, highScore: 12, unit: 'runs' },
+  UFC: { closeMatch: 0, highScore: 3, unit: 'rounds' },
+  OTHER: { closeMatch: 3, highScore: 20, unit: 'pts' }
+};
+
+const getBetTypeDescription = (type, game) => {
+  const t = GAME_THRESHOLDS[game] || GAME_THRESHOLDS.OTHER;
+  if (type === 'WINNER') return 'Parie sur le gagnant du match';
+  if (type === 'CLOSE_MATCH') return `Écart de ${t.closeMatch} ${t.unit} ou moins?`;
+  if (type === 'HIGH_SCORE') return `Score total de ${t.highScore}+ ${t.unit}?`;
+  return '';
 };
 
 export default function MatchDetail() {
@@ -294,7 +307,7 @@ export default function MatchDetail() {
                 );
               })}
             </div>
-            <p className="text-sm text-gray-500 mt-2">{betTypeDescriptions[betType]}</p>
+            <p className="text-sm text-gray-500 mt-2">{getBetTypeDescription(betType, match.game)}</p>
           </div>
         )}
 
@@ -302,7 +315,7 @@ export default function MatchDetail() {
         {canBet && betType !== 'WINNER' && (
           <div className="bg-gray-700 rounded-lg p-4 mb-6">
             <h3 className="font-bold mb-3">
-              {betType === 'CLOSE_MATCH' ? 'Le match sera-t-il serré? (écart ≤ 7 pts)' : 'Score total ≥ 50 points?'}
+              {getBetTypeDescription(betType, match.game)}
             </h3>
             <div className="flex gap-4 mb-4">
               <button

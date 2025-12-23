@@ -4,6 +4,17 @@ import { createNotification } from './notifications.js';
 
 const router = Router();
 
+// Seuils par sport pour les paris "match serré" et "haut score"
+const GAME_THRESHOLDS = {
+  MADDEN: { closeMatch: 7, highScore: 50 },   // Football américain
+  NHL: { closeMatch: 2, highScore: 8 },       // Hockey
+  FIFA: { closeMatch: 1, highScore: 5 },      // Soccer
+  NBA2K: { closeMatch: 10, highScore: 200 },  // Basketball
+  MLB: { closeMatch: 2, highScore: 12 },      // Baseball
+  UFC: { closeMatch: 0, highScore: 3 },       // UFC (rounds/finish)
+  OTHER: { closeMatch: 3, highScore: 20 }     // Défaut
+};
+
 // Liste des matchs
 router.get('/', async (req, res) => {
   try {
@@ -145,11 +156,12 @@ router.patch('/:id/result', authenticate, async (req, res) => {
       winningPrediction = 'player2';
     }
 
-    // Calculer les stats du match pour les nouveaux types de paris
+    // Calculer les stats du match selon le sport
+    const thresholds = GAME_THRESHOLDS[match.game] || GAME_THRESHOLDS.OTHER;
     const scoreDiff = Math.abs(player1Score - player2Score);
     const totalScore = player1Score + player2Score;
-    const isCloseMatch = scoreDiff <= 7;  // Match serré = écart <= 7
-    const isHighScore = totalScore >= 50; // Haut score = total >= 50
+    const isCloseMatch = scoreDiff <= thresholds.closeMatch;
+    const isHighScore = totalScore >= thresholds.highScore;
 
     // Mise à jour transactionnelle
     await req.prisma.$transaction(async (tx) => {
