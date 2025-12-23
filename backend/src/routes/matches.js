@@ -145,10 +145,11 @@ router.patch('/:id/result', authenticate, async (req, res) => {
       winningPrediction = 'player2';
     }
 
-    // Calculer le pool total et les gains
-    const totalPool = match.bets.reduce((sum, bet) => sum + bet.amount, 0);
-    const winningBets = match.bets.filter(b => b.prediction === winningPrediction);
-    const winningPool = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
+    // Calculer les stats du match pour les nouveaux types de paris
+    const scoreDiff = Math.abs(player1Score - player2Score);
+    const totalScore = player1Score + player2Score;
+    const isCloseMatch = scoreDiff <= 7;  // Match serré = écart <= 7
+    const isHighScore = totalScore >= 50; // Haut score = total >= 50
 
     // Mise à jour transactionnelle
     await req.prisma.$transaction(async (tx) => {
@@ -165,8 +166,29 @@ router.patch('/:id/result', authenticate, async (req, res) => {
 
       // Traiter les paris
       for (const bet of match.bets) {
-        if (winningPrediction === null) {
-          // Match nul - rembourser
+        const betType = bet.betType || 'WINNER';
+        let betWon = false;
+        let betRefunded = false;
+
+        // Déterminer si le pari est gagné selon le type
+        if (betType === 'WINNER') {
+          if (winningPrediction === null) {
+            betRefunded = true; // Match nul
+          } else {
+            betWon = bet.prediction === winningPrediction;
+          }
+        } else if (betType === 'CLOSE_MATCH') {
+          // Pari sur match serré
+          betWon = (bet.prediction === 'yes' && isCloseMatch) ||
+                   (bet.prediction === 'no' && !isCloseMatch);
+        } else if (betType === 'HIGH_SCORE') {
+          // Pari sur haut score
+          betWon = (bet.prediction === 'yes' && isHighScore) ||
+                   (bet.prediction === 'no' && !isHighScore);
+        }
+
+        if (betRefunded) {
+          // Match nul - rembourser (seulement pour WINNER)
           await tx.bet.update({
             where: { id: bet.id },
             data: { status: 'REFUNDED', payout: bet.amount }
@@ -175,14 +197,13 @@ router.patch('/:id/result', authenticate, async (req, res) => {
             where: { id: bet.userId },
             data: { balance: { increment: bet.amount } }
           });
-          // Notification remboursement
           await createNotification(
             tx, bet.userId, 'BET_REFUNDED',
             'Pari remboursé',
             `Match nul! Tu as été remboursé de ${bet.amount} coins.`,
             match.id
           );
-        } else if (bet.prediction === winningPrediction) {
+        } else if (betWon) {
           // Pari gagné - double de la mise
           const payout = bet.amount * 2;
 
@@ -197,11 +218,18 @@ router.patch('/:id/result', authenticate, async (req, res) => {
               wins: { increment: 1 }
             }
           });
-          // Notification pari gagné
+
+          let message = `Tu as gagné ${payout} coins!`;
+          if (betType === 'CLOSE_MATCH') {
+            message = `Match serré (écart ${scoreDiff})! Tu as gagné ${payout} coins!`;
+          } else if (betType === 'HIGH_SCORE') {
+            message = `Score total ${totalScore}! Tu as gagné ${payout} coins!`;
+          }
+
           await createNotification(
             tx, bet.userId, 'BET_WON',
             'Pari gagné!',
-            `Tu as gagné ${payout} coins sur ${match.player1Name} vs ${match.player2Name}!`,
+            message,
             match.id
           );
         } else {
@@ -214,11 +242,18 @@ router.patch('/:id/result', authenticate, async (req, res) => {
             where: { id: bet.userId },
             data: { losses: { increment: 1 } }
           });
-          // Notification pari perdu
+
+          let message = `Tu as perdu ${bet.amount} coins.`;
+          if (betType === 'CLOSE_MATCH') {
+            message = `Écart de ${scoreDiff} points. Tu as perdu ${bet.amount} coins.`;
+          } else if (betType === 'HIGH_SCORE') {
+            message = `Score total ${totalScore}. Tu as perdu ${bet.amount} coins.`;
+          }
+
           await createNotification(
             tx, bet.userId, 'BET_LOST',
             'Pari perdu',
-            `Tu as perdu ${bet.amount} coins sur ${match.player1Name} vs ${match.player2Name}.`,
+            message,
             match.id
           );
         }

@@ -60,13 +60,14 @@ model Bet {
   matchId   String
   match     Match     @relation(fields: [matchId], references: [id])
   amount    Int
-  prediction String   // "player1" ou "player2"
+  betType   BetType   @default(WINNER)  // Type de pari
+  prediction String   // "player1", "player2", "yes", "no"
   status    BetStatus @default(PENDING)
   payout    Int?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  @@unique([userId, matchId]) // Un seul pari par match par utilisateur
+  @@unique([userId, matchId, betType]) // Un seul pari par type par match par utilisateur
 }
 
 model Notification {
@@ -159,6 +160,12 @@ enum BetStatus {
   WON
   LOST
   REFUNDED
+}
+
+enum BetType {
+  WINNER      // Pari sur le gagnant
+  CLOSE_MATCH // Pari sur match serré (écart <= 7 points)
+  HIGH_SCORE  // Pari sur haut score (total >= 50 points)
 }
 
 enum PlayerType {

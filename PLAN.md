@@ -26,10 +26,14 @@ Site de paris sportifs amical pour les matchs Xbox (Madden, NHL, FIFA, etc.) dep
 ### 3. Systeme de Paris
 - [x] Paris sur les matchs en attente
 - [x] Mise minimum: 10 coins
-- [x] Un seul pari par match par utilisateur
+- [x] Un seul pari par type par match par utilisateur
 - [x] Paiement x2 sur les paris gagnes (mise 100 = gain 200)
 - [x] Remboursement en cas de match nul
 - [x] Historique des paris (Mes Paris)
+- [x] **3 types de paris:**
+  - Gagnant: Parier sur qui va gagner
+  - Match serre: Parier si l'ecart sera <= 7 points (Oui/Non)
+  - Haut score: Parier si le score total sera >= 50 points (Oui/Non)
 
 ### 4. Notifications
 - [x] Cloche de notifications dans la navbar
@@ -98,7 +102,8 @@ Site de paris sportifs amical pour les matchs Xbox (Madden, NHL, FIFA, etc.) dep
 
 ### Bet
 - id, userId, matchId
-- amount, prediction (player1/player2)
+- amount, betType (WINNER/CLOSE_MATCH/HIGH_SCORE)
+- prediction (player1/player2 ou yes/no)
 - status (PENDING/WON/LOST/REFUNDED), payout
 
 ### Notification
@@ -154,6 +159,12 @@ Site de paris sportifs amical pour les matchs Xbox (Madden, NHL, FIFA, etc.) dep
 - Champ nom du joueur humain
 - Systeme de notifications complet
 - Mode tournoi avec bracket
+
+### v1.4.0 - Types de Paris
+- 3 types de paris: Gagnant, Match serre, Haut score
+- Pari "Match serre": ecart <= 7 points
+- Pari "Haut score": score total >= 50 points
+- Possibilite de parier sur chaque type pour un meme match
 
 ---
 

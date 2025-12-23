@@ -3,10 +3,13 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
+// Types de paris valides
+const BET_TYPES = ['WINNER', 'CLOSE_MATCH', 'HIGH_SCORE'];
+
 // Placer un pari
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { matchId, amount, prediction } = req.body;
+    const { matchId, amount, prediction, betType = 'WINNER' } = req.body;
 
     if (!matchId || !amount || !prediction) {
       return res.status(400).json({ error: 'Match, montant et prédiction requis' });
@@ -16,8 +19,17 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Mise minimum: 10 coins' });
     }
 
-    if (!['player1', 'player2'].includes(prediction)) {
-      return res.status(400).json({ error: 'Prédiction invalide' });
+    if (!BET_TYPES.includes(betType)) {
+      return res.status(400).json({ error: 'Type de pari invalide' });
+    }
+
+    // Valider la prédiction selon le type de pari
+    if (betType === 'WINNER' && !['player1', 'player2'].includes(prediction)) {
+      return res.status(400).json({ error: 'Prédiction invalide pour un pari gagnant' });
+    }
+
+    if ((betType === 'CLOSE_MATCH' || betType === 'HIGH_SCORE') && !['yes', 'no'].includes(prediction)) {
+      return res.status(400).json({ error: 'Prédiction invalide (yes/no requis)' });
     }
 
     // Vérifier le match
@@ -42,18 +54,19 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Solde insuffisant' });
     }
 
-    // Vérifier si un pari existe déjà
+    // Vérifier si un pari de ce type existe déjà
     const existingBet = await req.prisma.bet.findUnique({
       where: {
-        userId_matchId: {
+        userId_matchId_betType: {
           userId: req.userId,
-          matchId
+          matchId,
+          betType
         }
       }
     });
 
     if (existingBet) {
-      return res.status(400).json({ error: 'Vous avez déjà parié sur ce match' });
+      return res.status(400).json({ error: 'Vous avez déjà placé ce type de pari sur ce match' });
     }
 
     // Créer le pari et débiter le solde
@@ -68,6 +81,7 @@ router.post('/', authenticate, async (req, res) => {
           userId: req.userId,
           matchId,
           amount,
+          betType,
           prediction
         },
         include: {

@@ -19,6 +19,12 @@ const statusColors = {
   REFUNDED: 'text-blue-400 bg-blue-400/20'
 };
 
+const betTypeLabels = {
+  WINNER: 'Gagnant',
+  CLOSE_MATCH: 'Match serré',
+  HIGH_SCORE: 'Haut score'
+};
+
 export default function MyBets() {
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,17 +110,19 @@ export default function MyBets() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-lg">
-                      <span className={bet.prediction === 'player1' ? 'text-xbox-green font-bold' : ''}>
-                        {bet.match.player1Name}
-                      </span>
-                      {' vs '}
-                      <span className={bet.prediction === 'player2' ? 'text-xbox-green font-bold' : ''}>
-                        {bet.match.player2Name}
-                      </span>
+                      {bet.match.player1Name} vs {bet.match.player2Name}
                     </p>
-                    <p className="text-sm text-gray-400">
-                      Pari sur: {bet.prediction === 'player1' ? bet.match.player1Name : bet.match.player2Name}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs px-2 py-1 rounded bg-gray-600">
+                        {betTypeLabels[bet.betType] || 'Gagnant'}
+                      </span>
+                      <span className="text-sm text-xbox-green">
+                        {(bet.betType || 'WINNER') === 'WINNER'
+                          ? (bet.prediction === 'player1' ? bet.match.player1Name : bet.match.player2Name)
+                          : (bet.prediction === 'yes' ? 'Oui' : 'Non')
+                        }
+                      </span>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold">{bet.amount} coins</p>
