@@ -1,16 +1,19 @@
 import axios from 'axios';
 
-// Detect production environment
+// API Base URL - Production: elliot-backend-production.up.railway.app
+const API_URL = 'https://elliot-backend-production.up.railway.app/api';
+
 const getBaseURL = () => {
+  // Use env variable if set
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
-  // Production URL
-  if (window.location.hostname.includes('railway.app')) {
-    return 'https://elliot-backend-production.up.railway.app/api';
+  // Production - always use the backend URL
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return API_URL;
   }
   // Local development
-  return '/api';
+  return 'http://localhost:3001/api';
 };
 
 const api = axios.create({
