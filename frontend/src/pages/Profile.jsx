@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 const platforms = [
   { key: 'xboxGamertag', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
   { key: 'psnId', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
-  { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID' },
+  { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
   { key: 'nintendoId', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
   { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
 ];
@@ -16,12 +16,25 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    xboxGamertag: user?.xboxGamertag || '',
-    psnId: user?.psnId || '',
-    eaId: user?.eaId || '',
-    nintendoId: user?.nintendoId || '',
-    steamName: user?.steamName || ''
+    xboxGamertag: '',
+    psnId: '',
+    eaId: '',
+    nintendoId: '',
+    steamName: ''
   });
+
+  // Mettre à jour le formulaire quand les données user changent
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        xboxGamertag: user.xboxGamertag || '',
+        psnId: user.psnId || '',
+        eaId: user.eaId || '',
+        nintendoId: user.nintendoId || '',
+        steamName: user.steamName || ''
+      });
+    }
+  }, [user]);
 
   if (!user) return null;
 
