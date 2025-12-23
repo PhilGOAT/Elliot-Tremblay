@@ -16,6 +16,14 @@ model User {
   wins           Int       @default(0)
   losses         Int       @default(0)
   lastDailyBonus DateTime? // Dernière réclamation du bonus quotidien
+
+  // Gamertags des différentes plateformes
+  xboxGamertag   String?   // Xbox Live
+  psnId          String?   // PlayStation Network
+  eaId           String?   // EA App (pour Madden, NHL, FIFA)
+  nintendoId     String?   // Nintendo Switch Online
+  steamName      String?   // Steam (PC)
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

@@ -16,6 +16,11 @@ router.get('/me', authenticate, async (req, res) => {
         wins: true,
         losses: true,
         lastDailyBonus: true,
+        xboxGamertag: true,
+        psnId: true,
+        eaId: true,
+        nintendoId: true,
+        steamName: true,
         createdAt: true
       }
     });
@@ -36,6 +41,41 @@ router.get('/me', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Mettre à jour le profil
+router.patch('/me', authenticate, async (req, res) => {
+  try {
+    const { xboxGamertag, psnId, eaId, nintendoId, steamName } = req.body;
+
+    const updatedUser = await req.prisma.user.update({
+      where: { id: req.userId },
+      data: {
+        xboxGamertag: xboxGamertag !== undefined ? xboxGamertag : undefined,
+        psnId: psnId !== undefined ? psnId : undefined,
+        eaId: eaId !== undefined ? eaId : undefined,
+        nintendoId: nintendoId !== undefined ? nintendoId : undefined,
+        steamName: steamName !== undefined ? steamName : undefined
+      },
+      select: {
+        id: true,
+        username: true,
+        xboxGamertag: true,
+        psnId: true,
+        eaId: true,
+        nintendoId: true,
+        steamName: true
+      }
+    });
+
+    res.json({
+      message: 'Profil mis à jour!',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

@@ -1,13 +1,49 @@
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
+import toast from 'react-hot-toast';
+
+const platforms = [
+  { key: 'xboxGamertag', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
+  { key: 'psnId', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
+  { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID' },
+  { key: 'nintendoId', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
+  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
+];
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    xboxGamertag: user?.xboxGamertag || '',
+    psnId: user?.psnId || '',
+    eaId: user?.eaId || '',
+    nintendoId: user?.nintendoId || '',
+    steamName: user?.steamName || ''
+  });
 
   if (!user) return null;
 
   const winRate = user.wins + user.losses > 0
     ? Math.round((user.wins / (user.wins + user.losses)) * 100)
     : 0;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.patch('/users/me', formData);
+      toast.success('Profil mis à jour!');
+      await refreshUser();
+      setEditing(false);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasAnyGamertag = platforms.some(p => user[p.key]);
 
   return (
     <div className="max-w-md mx-auto">
@@ -36,7 +72,7 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="bg-gray-700 rounded-lg p-4">
+        <div className="bg-gray-700 rounded-lg p-4 mb-6">
           <p className="text-gray-400 mb-2">Taux de réussite</p>
           <div className="h-4 bg-gray-600 rounded-full overflow-hidden">
             <div
@@ -47,7 +83,72 @@ export default function Profile() {
           <p className="text-xl font-bold mt-2">{winRate}%</p>
         </div>
 
-        <p className="text-sm text-gray-500 mt-6">
+        {/* Section Gamertags */}
+        <div className="bg-gray-700 rounded-lg p-4 mb-6 text-left">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold">Mes plateformes</h3>
+            {!editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="text-xbox-green text-sm hover:underline"
+              >
+                Modifier
+              </button>
+            )}
+          </div>
+
+          {editing ? (
+            <div className="space-y-3">
+              {platforms.map(platform => (
+                <div key={platform.key} className="flex items-center gap-3">
+                  <span className="text-xl w-8">{platform.icon}</span>
+                  <input
+                    type="text"
+                    value={formData[platform.key]}
+                    onChange={(e) => setFormData({ ...formData, [platform.key]: e.target.value })}
+                    placeholder={platform.placeholder}
+                    className="input flex-1 text-sm"
+                  />
+                </div>
+              ))}
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="btn-primary flex-1 text-sm"
+                >
+                  {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="btn-secondary text-sm"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {hasAnyGamertag ? (
+                platforms.map(platform => (
+                  user[platform.key] && (
+                    <div key={platform.key} className="flex items-center gap-3">
+                      <span className="text-xl w-8">{platform.icon}</span>
+                      <span className="text-gray-300">{platform.label}:</span>
+                      <span className="text-white font-medium">{user[platform.key]}</span>
+                    </div>
+                  )
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-2">
+                  Aucune plateforme liée. Clique sur "Modifier" pour ajouter tes gamertags!
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <p className="text-sm text-gray-500">
           Membre depuis {new Date(user.createdAt).toLocaleDateString('fr-FR')}
         </p>
       </div>
