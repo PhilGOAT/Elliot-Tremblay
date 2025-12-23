@@ -167,16 +167,8 @@ router.patch('/:id/result', authenticate, async (req, res) => {
             data: { balance: { increment: bet.amount } }
           });
         } else if (bet.prediction === winningPrediction) {
-          // Pari gagné
-          let payout;
-
-          // Si pari seul (pas de perdants), bonus de 10%
-          if (totalPool === winningPool) {
-            payout = Math.floor(bet.amount * 1.1);
-          } else {
-            // Système mutuel: gains = mise des perdants
-            payout = Math.floor((bet.amount / winningPool) * totalPool);
-          }
+          // Pari gagné - double de la mise
+          const payout = bet.amount * 2;
 
           await tx.bet.update({
             where: { id: bet.id },
