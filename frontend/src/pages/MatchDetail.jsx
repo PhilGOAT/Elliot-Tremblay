@@ -160,13 +160,6 @@ export default function MatchDetail() {
 
   if (!match) return null;
 
-  // Vérifier si l'utilisateur peut parier sur ce type de pari
-  const hasAlreadyBetThisType = match.bets.some(
-    b => b.user?.username === user?.username && (b.betType || 'WINNER') === betType
-  );
-
-  const canBet = user && match.status === 'PENDING' && !hasAlreadyBetThisType;
-
   const isCreator = user && match.createdBy === user.id;
   const canSetResult = isCreator && match.status !== 'COMPLETED' && match.status !== 'CANCELLED';
 
@@ -275,125 +268,209 @@ export default function MatchDetail() {
           </div>
         )}
 
-        {/* Sélecteur de type de pari */}
+        {/* Section des 3 types de paris */}
         {user && match.status === 'PENDING' && (
-          <div className="mb-6">
-            <h3 className="font-bold mb-3">Type de pari</h3>
-            <div className="flex gap-2">
-              {['WINNER', 'CLOSE_MATCH', 'HIGH_SCORE'].map(type => {
-                const alreadyBet = match.bets.some(
-                  b => b.user?.username === user.username && (b.betType || 'WINNER') === type
-                );
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">Tes paris</h3>
+              <p className="text-sm text-gray-400">Solde: {user.balance} coins</p>
+            </div>
+
+            {/* PARI 1: Gagnant */}
+            {(() => {
+              const myBet = match.bets.find(b => b.user?.username === user.username && (b.betType || 'WINNER') === 'WINNER');
+              if (myBet) {
                 return (
-                  <button
-                    key={type}
-                    onClick={() => {
-                      setBetType(type);
-                      setSelectedPlayer(null);
-                      setSpecialBetPrediction(null);
-                    }}
-                    disabled={alreadyBet}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition ${
-                      betType === type
-                        ? 'bg-xbox-green text-white'
-                        : alreadyBet
-                          ? 'bg-gray-600 text-gray-500 cursor-not-allowed'
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    {betTypeLabels[type]}
-                    {alreadyBet && ' ✓'}
-                  </button>
+                  <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">🏆 Gagnant</span>
+                      <span className="text-green-400">✓ Parié</span>
+                    </div>
+                    <p className="text-sm text-gray-300 mt-1">
+                      {myBet.prediction === 'player1' ? match.player1Name : match.player2Name} - {myBet.amount} coins
+                    </p>
+                  </div>
                 );
-              })}
-            </div>
-            <p className="text-sm text-gray-500 mt-2">{getBetTypeDescription(betType, match.game)}</p>
-          </div>
-        )}
+              }
+              return (
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-medium">🏆 Gagnant</span>
+                    <span className="text-xs text-gray-400">Qui va gagner?</span>
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => { setBetType('WINNER'); setSelectedPlayer('player1'); }}
+                      className={`flex-1 py-2 px-3 rounded-lg transition text-sm ${
+                        betType === 'WINNER' && selectedPlayer === 'player1'
+                          ? 'bg-xbox-green text-white'
+                          : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    >
+                      {match.player1Name}
+                    </button>
+                    <button
+                      onClick={() => { setBetType('WINNER'); setSelectedPlayer('player2'); }}
+                      className={`flex-1 py-2 px-3 rounded-lg transition text-sm ${
+                        betType === 'WINNER' && selectedPlayer === 'player2'
+                          ? 'bg-xbox-green text-white'
+                          : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    >
+                      {match.player2Name}
+                    </button>
+                  </div>
+                  {betType === 'WINNER' && selectedPlayer && (
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={betAmount}
+                        onChange={(e) => setBetAmount(Math.max(10, parseInt(e.target.value) || 0))}
+                        min="10"
+                        max={user.balance}
+                        className="input flex-1 text-sm"
+                        placeholder="Mise"
+                      />
+                      <button onClick={handleBet} disabled={submitting} className="btn-primary px-4 text-sm">
+                        {submitting ? '...' : 'Parier'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
-        {/* Paris spéciaux (Close Match / High Score) */}
-        {canBet && betType !== 'WINNER' && (
-          <div className="bg-gray-700 rounded-lg p-4 mb-6">
-            <h3 className="font-bold mb-3">
-              {getBetTypeDescription(betType, match.game)}
-            </h3>
-            <div className="flex gap-4 mb-4">
-              <button
-                onClick={() => setSpecialBetPrediction('yes')}
-                className={`flex-1 py-4 rounded-lg font-bold text-lg transition ${
-                  specialBetPrediction === 'yes'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                }`}
-              >
-                ✓ Oui
-              </button>
-              <button
-                onClick={() => setSpecialBetPrediction('no')}
-                className={`flex-1 py-4 rounded-lg font-bold text-lg transition ${
-                  specialBetPrediction === 'no'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                }`}
-              >
-                ✗ Non
-              </button>
-            </div>
-            {specialBetPrediction && (
-              <div className="flex gap-4">
-                <input
-                  type="number"
-                  value={betAmount}
-                  onChange={(e) => setBetAmount(Math.max(10, parseInt(e.target.value) || 0))}
-                  min="10"
-                  max={user?.balance || 0}
-                  className="input flex-1"
-                />
-                <button
-                  onClick={handleBet}
-                  disabled={submitting}
-                  className="btn-primary px-8"
-                >
-                  {submitting ? 'Envoi...' : 'Parier'}
-                </button>
-              </div>
-            )}
-            <p className="text-sm text-gray-400 mt-2">
-              Solde: {user?.balance || 0} coins | Gain x2 si tu gagnes
-            </p>
-          </div>
-        )}
+            {/* PARI 2: Match serré */}
+            {(() => {
+              const myBet = match.bets.find(b => b.user?.username === user.username && b.betType === 'CLOSE_MATCH');
+              const threshold = GAME_THRESHOLDS[match.game] || GAME_THRESHOLDS.OTHER;
+              if (myBet) {
+                return (
+                  <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">🤝 Match serré</span>
+                      <span className="text-green-400">✓ Parié</span>
+                    </div>
+                    <p className="text-sm text-gray-300 mt-1">
+                      {myBet.prediction === 'yes' ? 'Oui' : 'Non'} - {myBet.amount} coins
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-medium">🤝 Match serré</span>
+                    <span className="text-xs text-gray-400">Écart ≤ {threshold.closeMatch} {threshold.unit}?</span>
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => { setBetType('CLOSE_MATCH'); setSpecialBetPrediction('yes'); setSelectedPlayer(null); }}
+                      className={`flex-1 py-2 px-3 rounded-lg transition text-sm ${
+                        betType === 'CLOSE_MATCH' && specialBetPrediction === 'yes'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    >
+                      ✓ Oui
+                    </button>
+                    <button
+                      onClick={() => { setBetType('CLOSE_MATCH'); setSpecialBetPrediction('no'); setSelectedPlayer(null); }}
+                      className={`flex-1 py-2 px-3 rounded-lg transition text-sm ${
+                        betType === 'CLOSE_MATCH' && specialBetPrediction === 'no'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    >
+                      ✗ Non
+                    </button>
+                  </div>
+                  {betType === 'CLOSE_MATCH' && specialBetPrediction && (
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={betAmount}
+                        onChange={(e) => setBetAmount(Math.max(10, parseInt(e.target.value) || 0))}
+                        min="10"
+                        max={user.balance}
+                        className="input flex-1 text-sm"
+                        placeholder="Mise"
+                      />
+                      <button onClick={handleBet} disabled={submitting} className="btn-primary px-4 text-sm">
+                        {submitting ? '...' : 'Parier'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
-        {/* Pari sur le gagnant */}
-        {canBet && betType === 'WINNER' && selectedPlayer && (
-          <div className="bg-gray-700 rounded-lg p-4 mb-6">
-            <h3 className="font-bold mb-3">Parier sur {selectedPlayer === 'player1' ? match.player1Name : match.player2Name}</h3>
-            <div className="flex gap-4">
-              <input
-                type="number"
-                value={betAmount}
-                onChange={(e) => setBetAmount(Math.max(10, parseInt(e.target.value) || 0))}
-                min="10"
-                max={user?.balance || 0}
-                className="input flex-1"
-              />
-              <button
-                onClick={handleBet}
-                disabled={submitting}
-                className="btn-primary px-8"
-              >
-                {submitting ? 'Envoi...' : 'Parier'}
-              </button>
-            </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Solde: {user?.balance || 0} coins | Gain x2 si tu gagnes
-            </p>
-          </div>
-        )}
+            {/* PARI 3: Haut score */}
+            {(() => {
+              const myBet = match.bets.find(b => b.user?.username === user.username && b.betType === 'HIGH_SCORE');
+              const threshold = GAME_THRESHOLDS[match.game] || GAME_THRESHOLDS.OTHER;
+              if (myBet) {
+                return (
+                  <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">🔥 Haut score</span>
+                      <span className="text-green-400">✓ Parié</span>
+                    </div>
+                    <p className="text-sm text-gray-300 mt-1">
+                      {myBet.prediction === 'yes' ? 'Oui' : 'Non'} - {myBet.amount} coins
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-medium">🔥 Haut score</span>
+                    <span className="text-xs text-gray-400">Total ≥ {threshold.highScore} {threshold.unit}?</span>
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => { setBetType('HIGH_SCORE'); setSpecialBetPrediction('yes'); setSelectedPlayer(null); }}
+                      className={`flex-1 py-2 px-3 rounded-lg transition text-sm ${
+                        betType === 'HIGH_SCORE' && specialBetPrediction === 'yes'
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    >
+                      ✓ Oui
+                    </button>
+                    <button
+                      onClick={() => { setBetType('HIGH_SCORE'); setSpecialBetPrediction('no'); setSelectedPlayer(null); }}
+                      className={`flex-1 py-2 px-3 rounded-lg transition text-sm ${
+                        betType === 'HIGH_SCORE' && specialBetPrediction === 'no'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-gray-600 hover:bg-gray-500'
+                      }`}
+                    >
+                      ✗ Non
+                    </button>
+                  </div>
+                  {betType === 'HIGH_SCORE' && specialBetPrediction && (
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={betAmount}
+                        onChange={(e) => setBetAmount(Math.max(10, parseInt(e.target.value) || 0))}
+                        min="10"
+                        max={user.balance}
+                        className="input flex-1 text-sm"
+                        placeholder="Mise"
+                      />
+                      <button onClick={handleBet} disabled={submitting} className="btn-primary px-4 text-sm">
+                        {submitting ? '...' : 'Parier'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
-        {canBet && betType === 'WINNER' && !selectedPlayer && (
-          <div className="bg-gray-700 rounded-lg p-4 mb-6 text-center">
-            <p className="text-gray-400">Clique sur une équipe pour parier</p>
+            <p className="text-xs text-gray-500 text-center">Tu peux parier sur les 3 types! Gain x2 sur chaque pari gagné</p>
           </div>
         )}
 
