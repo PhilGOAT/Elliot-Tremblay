@@ -3,13 +3,30 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
+const platforms = [
+  { key: 'xboxGamertag', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
+  { key: 'psnId', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
+  { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
+  { key: 'nintendoId', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
+  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
+];
+
 export default function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [gamertags, setGamertags] = useState({
+    xboxGamertag: '',
+    psnId: '',
+    eaId: '',
+    nintendoId: '',
+    steamName: ''
+  });
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  const hasAtLeastOneGamertag = Object.values(gamertags).some(v => v.trim() !== '');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,11 +36,16 @@ export default function Register() {
       return;
     }
 
+    if (!hasAtLeastOneGamertag) {
+      toast.error('Entre au moins un gamertag!');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await register(username, email, password);
-      toast.success('Compte créé! Vous avez reçu 1000 coins de départ.');
+      await register(username, email, password, gamertags);
+      toast.success('Compte créé! Tu as reçu 1000 coins de départ.');
       navigate('/matches');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur lors de l\'inscription');
@@ -47,7 +69,7 @@ export default function Register() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="input"
-              placeholder="VotreGamertag"
+              placeholder="TonPseudo"
               required
             />
           </div>
@@ -61,7 +83,7 @@ export default function Register() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="input"
-              placeholder="votre@email.com"
+              placeholder="ton@email.com"
               required
             />
           </div>
@@ -82,10 +104,35 @@ export default function Register() {
             <p className="text-xs text-gray-500 mt-1">Minimum 6 caractères</p>
           </div>
 
+          {/* Section Gamertags */}
+          <div className="bg-gray-700 rounded-lg p-4">
+            <h3 className="font-bold mb-3 flex items-center gap-2">
+              🎮 Tes plateformes
+              <span className="text-xs text-gray-400 font-normal">(au moins une)</span>
+            </h3>
+            <div className="space-y-3">
+              {platforms.map(platform => (
+                <div key={platform.key} className="flex items-center gap-3">
+                  <span className="text-xl w-8">{platform.icon}</span>
+                  <input
+                    type="text"
+                    value={gamertags[platform.key]}
+                    onChange={(e) => setGamertags({ ...gamertags, [platform.key]: e.target.value })}
+                    placeholder={platform.placeholder}
+                    className="input flex-1 text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+            {!hasAtLeastOneGamertag && (
+              <p className="text-yellow-500 text-xs mt-2">⚠️ Entre au moins un gamertag</p>
+            )}
+          </div>
+
           <button
             type="submit"
             className="btn-primary w-full"
-            disabled={loading}
+            disabled={loading || !hasAtLeastOneGamertag}
           >
             {loading ? 'Création...' : 'Créer mon compte'}
           </button>
@@ -100,7 +147,7 @@ export default function Register() {
         <p className="text-center text-gray-400 mt-4">
           Déjà un compte?{' '}
           <Link to="/login" className="text-xbox-green hover:underline">
-            Connectez-vous
+            Connecte-toi
           </Link>
         </p>
       </div>

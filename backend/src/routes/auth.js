@@ -7,10 +7,15 @@ const router = Router();
 // Inscription
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, xboxGamertag, psnId, eaId, nintendoId, steamName } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Tous les champs sont requis' });
+    }
+
+    // Vérifier qu'au moins un gamertag est fourni
+    if (!xboxGamertag && !psnId && !eaId && !nintendoId && !steamName) {
+      return res.status(400).json({ error: 'Au moins un gamertag est requis' });
     }
 
     // Vérifier si l'utilisateur existe déjà
@@ -32,7 +37,12 @@ router.post('/register', async (req, res) => {
       data: {
         username,
         email,
-        password: hashedPassword
+        password: hashedPassword,
+        xboxGamertag: xboxGamertag || null,
+        psnId: psnId || null,
+        eaId: eaId || null,
+        nintendoId: nintendoId || null,
+        steamName: steamName || null
       },
       select: {
         id: true,
@@ -41,6 +51,11 @@ router.post('/register', async (req, res) => {
         balance: true,
         wins: true,
         losses: true,
+        xboxGamertag: true,
+        psnId: true,
+        eaId: true,
+        nintendoId: true,
+        steamName: true,
         createdAt: true
       }
     });
