@@ -75,7 +75,7 @@ router.get('/:id', async (req, res) => {
 // Créer un match
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { game, player1Name, player2Name, scheduledAt } = req.body;
+    const { game, player1Name, player2Name, player1Type, player2Type, scheduledAt } = req.body;
 
     if (!game || !player1Name || !player2Name) {
       return res.status(400).json({ error: 'Jeu et noms des équipes/joueurs requis' });
@@ -86,6 +86,8 @@ router.post('/', authenticate, async (req, res) => {
         game,
         player1Name,
         player2Name,
+        player1Type: player1Type || 'HUMAN',
+        player2Type: player2Type || 'HUMAN',
         createdBy: req.userId,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null
       }

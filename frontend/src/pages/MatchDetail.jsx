@@ -155,6 +155,9 @@ export default function MatchDetail() {
                   : 'border-gray-700 opacity-60'
             } ${match.winnerId === 'player1' ? 'ring-2 ring-xbox-green' : ''}`}
           >
+            <p className="text-sm text-gray-400 mb-1">
+              {match.player1Type === 'CPU' ? '🤖 CPU' : '👤 Humain'}
+            </p>
             <p className="text-2xl font-bold mb-2">{match.player1Name}</p>
             {match.status === 'COMPLETED' && (
               <p className="text-4xl font-bold text-xbox-green mt-4">{match.player1Score}</p>
@@ -180,6 +183,9 @@ export default function MatchDetail() {
                   : 'border-gray-700 opacity-60'
             } ${match.winnerId === 'player2' ? 'ring-2 ring-xbox-green' : ''}`}
           >
+            <p className="text-sm text-gray-400 mb-1">
+              {match.player2Type === 'CPU' ? '🤖 CPU' : '👤 Humain'}
+            </p>
             <p className="text-2xl font-bold mb-2">{match.player2Name}</p>
             {match.status === 'COMPLETED' && (
               <p className="text-4xl font-bold text-xbox-green mt-4">{match.player2Score}</p>

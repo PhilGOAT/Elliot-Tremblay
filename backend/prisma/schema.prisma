@@ -29,6 +29,8 @@ model Match {
   game         GameType
   player1Name  String      // Nom libre (ex: "Patriots", "Mon équipe")
   player2Name  String      // Nom libre (ex: "Chiefs", "Adversaire")
+  player1Type  PlayerType  @default(HUMAN) // Humain ou CPU
+  player2Type  PlayerType  @default(HUMAN) // Humain ou CPU
   player1Id    String?     // Optionnel - lié à un user
   player2Id    String?     // Optionnel - lié à un user
   player1      User?       @relation("Player1", fields: [player1Id], references: [id])
@@ -84,4 +86,9 @@ enum BetStatus {
   WON
   LOST
   REFUNDED
+}
+
+enum PlayerType {
+  HUMAN
+  CPU
 }

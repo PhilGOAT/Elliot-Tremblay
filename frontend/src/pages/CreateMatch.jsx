@@ -18,6 +18,8 @@ export default function CreateMatch() {
   const [game, setGame] = useState('MADDEN');
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
+  const [player1Type, setPlayer1Type] = useState('HUMAN');
+  const [player2Type, setPlayer2Type] = useState('CPU');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -33,7 +35,9 @@ export default function CreateMatch() {
       const res = await api.post('/matches', {
         game,
         player1Name: player1Name.trim(),
-        player2Name: player2Name.trim()
+        player2Name: player2Name.trim(),
+        player1Type,
+        player2Type
       });
       toast.success('Match créé!');
       navigate(`/matches/${res.data.id}`);
@@ -65,32 +69,82 @@ export default function CreateMatch() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Équipe / Joueur 1
+          {/* Joueur 1 */}
+          <div className="bg-gray-700 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Joueur / Équipe 1
             </label>
             <input
               type="text"
               value={player1Name}
               onChange={(e) => setPlayer1Name(e.target.value)}
-              className="input"
-              placeholder="Ex: Patriots, MonÉquipe, Moi..."
+              className="input mb-3"
+              placeholder="Ex: Patriots, Moi..."
               required
             />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPlayer1Type('HUMAN')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                  player1Type === 'HUMAN'
+                    ? 'bg-xbox-green text-white'
+                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                }`}
+              >
+                👤 Humain
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlayer1Type('CPU')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                  player1Type === 'CPU'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                }`}
+              >
+                🤖 CPU
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Équipe / Joueur 2
+          {/* Joueur 2 */}
+          <div className="bg-gray-700 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Joueur / Équipe 2
             </label>
             <input
               type="text"
               value={player2Name}
               onChange={(e) => setPlayer2Name(e.target.value)}
-              className="input"
-              placeholder="Ex: Chiefs, Adversaire, CPU..."
+              className="input mb-3"
+              placeholder="Ex: Chiefs, CPU..."
               required
             />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPlayer2Type('HUMAN')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                  player2Type === 'HUMAN'
+                    ? 'bg-xbox-green text-white'
+                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                }`}
+              >
+                👤 Humain
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlayer2Type('CPU')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                  player2Type === 'CPU'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                }`}
+              >
+                🤖 CPU
+              </button>
+            </div>
           </div>
 
           <button
