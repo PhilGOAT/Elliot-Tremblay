@@ -16,10 +16,15 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: true, // Allow all origins
   credentials: true
 }));
 app.use(express.json());
+
+// Root health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Xbox Betting API' });
+});
 
 // Make prisma available in routes
 app.use((req, res, next) => {

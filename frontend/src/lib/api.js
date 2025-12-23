@@ -1,7 +1,20 @@
 import axios from 'axios';
 
+// Detect production environment
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Production URL
+  if (window.location.hostname.includes('railway.app')) {
+    return 'https://elliot-backend-production.up.railway.app/api';
+  }
+  // Local development
+  return '/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json'
   }
