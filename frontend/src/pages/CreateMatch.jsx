@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
@@ -15,26 +15,16 @@ const games = [
 
 export default function CreateMatch() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
   const [game, setGame] = useState('MADDEN');
-  const [player1Id, setPlayer1Id] = useState('');
-  const [player2Id, setPlayer2Id] = useState('');
+  const [player1Name, setPlayer1Name] = useState('');
+  const [player2Name, setPlayer2Name] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    api.get('/users').then(res => setUsers(res.data));
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!player1Id || !player2Id) {
-      toast.error('Sélectionnez les deux joueurs');
-      return;
-    }
-
-    if (player1Id === player2Id) {
-      toast.error('Les joueurs doivent être différents');
+    if (!player1Name.trim() || !player2Name.trim()) {
+      toast.error('Entrez les noms des deux équipes/joueurs');
       return;
     }
 
@@ -42,8 +32,8 @@ export default function CreateMatch() {
     try {
       const res = await api.post('/matches', {
         game,
-        player1Id,
-        player2Id
+        player1Name: player1Name.trim(),
+        player2Name: player2Name.trim()
       });
       toast.success('Match créé!');
       navigate(`/matches/${res.data.id}`);
@@ -77,36 +67,30 @@ export default function CreateMatch() {
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              Joueur 1
+              Équipe / Joueur 1
             </label>
-            <select
-              value={player1Id}
-              onChange={(e) => setPlayer1Id(e.target.value)}
+            <input
+              type="text"
+              value={player1Name}
+              onChange={(e) => setPlayer1Name(e.target.value)}
               className="input"
+              placeholder="Ex: Patriots, MonÉquipe, Moi..."
               required
-            >
-              <option value="">Sélectionner un joueur</option>
-              {users.filter(u => u.id !== player2Id).map(user => (
-                <option key={user.id} value={user.id}>{user.username}</option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
-              Joueur 2
+              Équipe / Joueur 2
             </label>
-            <select
-              value={player2Id}
-              onChange={(e) => setPlayer2Id(e.target.value)}
+            <input
+              type="text"
+              value={player2Name}
+              onChange={(e) => setPlayer2Name(e.target.value)}
               className="input"
+              placeholder="Ex: Chiefs, Adversaire, CPU..."
               required
-            >
-              <option value="">Sélectionner un joueur</option>
-              {users.filter(u => u.id !== player1Id).map(user => (
-                <option key={user.id} value={user.id}>{user.username}</option>
-              ))}
-            </select>
+            />
           </div>
 
           <button
@@ -117,6 +101,10 @@ export default function CreateMatch() {
             {loading ? 'Création...' : 'Créer le match'}
           </button>
         </form>
+
+        <p className="text-sm text-gray-500 text-center mt-4">
+          Tu pourras parier et entrer le résultat après
+        </p>
       </div>
     </div>
   );

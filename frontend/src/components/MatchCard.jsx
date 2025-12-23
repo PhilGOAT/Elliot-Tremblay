@@ -29,7 +29,7 @@ export default function MatchCard({ match }) {
 
       <div className="flex items-center justify-between">
         <div className="text-center flex-1">
-          <p className="text-lg font-bold text-white">{match.player1?.username}</p>
+          <p className="text-lg font-bold text-white">{match.player1Name}</p>
           {match.status === 'COMPLETED' && (
             <p className="text-3xl font-bold text-xbox-green mt-2">{match.player1Score}</p>
           )}
@@ -45,7 +45,7 @@ export default function MatchCard({ match }) {
         </div>
 
         <div className="text-center flex-1">
-          <p className="text-lg font-bold text-white">{match.player2?.username}</p>
+          <p className="text-lg font-bold text-white">{match.player2Name}</p>
           {match.status === 'COMPLETED' && (
             <p className="text-3xl font-bold text-xbox-green mt-2">{match.player2Score}</p>
           )}

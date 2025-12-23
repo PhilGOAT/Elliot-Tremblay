@@ -25,19 +25,22 @@ model User {
 }
 
 model Match {
-  id          String      @id @default(uuid())
-  game        GameType
-  player1Id   String
-  player2Id   String
-  player1     User        @relation("Player1", fields: [player1Id], references: [id])
-  player2     User        @relation("Player2", fields: [player2Id], references: [id])
+  id           String      @id @default(uuid())
+  game         GameType
+  player1Name  String      // Nom libre (ex: "Patriots", "Mon équipe")
+  player2Name  String      // Nom libre (ex: "Chiefs", "Adversaire")
+  player1Id    String?     // Optionnel - lié à un user
+  player2Id    String?     // Optionnel - lié à un user
+  player1      User?       @relation("Player1", fields: [player1Id], references: [id])
+  player2      User?       @relation("Player2", fields: [player2Id], references: [id])
   player1Score Int?
   player2Score Int?
-  winnerId    String?
-  status      MatchStatus @default(PENDING)
-  scheduledAt DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  winnerId     String?
+  status       MatchStatus @default(PENDING)
+  createdBy    String      // User qui a créé le match
+  scheduledAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   // Relations
   bets Bet[]

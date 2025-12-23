@@ -81,6 +81,7 @@ export default function MatchDetail() {
       });
       toast.success('Résultat enregistré!');
       fetchMatch();
+      refreshUser();
       setShowScoreForm(false);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur');
@@ -96,6 +97,7 @@ export default function MatchDetail() {
       await api.patch(`/matches/${id}/cancel`);
       toast.success('Match annulé');
       fetchMatch();
+      refreshUser();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur');
     }
@@ -115,8 +117,8 @@ export default function MatchDetail() {
     match.status === 'PENDING' &&
     !match.bets.some(b => b.user?.username === user.username);
 
-  const isPlayer = user && (match.player1.id === user.id || match.player2.id === user.id);
-  const canSetResult = isPlayer && match.status !== 'COMPLETED' && match.status !== 'CANCELLED';
+  const isCreator = user && match.createdBy === user.id;
+  const canSetResult = isCreator && match.status !== 'COMPLETED' && match.status !== 'CANCELLED';
 
   const player1Bets = match.bets.filter(b => b.prediction === 'player1');
   const player2Bets = match.bets.filter(b => b.prediction === 'player2');
@@ -151,12 +153,9 @@ export default function MatchDetail() {
                 : canBet
                   ? 'border-gray-600 hover:border-gray-500'
                   : 'border-gray-700 opacity-60'
-            } ${match.winnerId === match.player1.id ? 'ring-2 ring-xbox-green' : ''}`}
+            } ${match.winnerId === 'player1' ? 'ring-2 ring-xbox-green' : ''}`}
           >
-            <p className="text-2xl font-bold mb-2">{match.player1.username}</p>
-            <p className="text-sm text-gray-400">
-              {match.player1.wins}W - {match.player1.losses}L
-            </p>
+            <p className="text-2xl font-bold mb-2">{match.player1Name}</p>
             {match.status === 'COMPLETED' && (
               <p className="text-4xl font-bold text-xbox-green mt-4">{match.player1Score}</p>
             )}
@@ -179,12 +178,9 @@ export default function MatchDetail() {
                 : canBet
                   ? 'border-gray-600 hover:border-gray-500'
                   : 'border-gray-700 opacity-60'
-            } ${match.winnerId === match.player2.id ? 'ring-2 ring-xbox-green' : ''}`}
+            } ${match.winnerId === 'player2' ? 'ring-2 ring-xbox-green' : ''}`}
           >
-            <p className="text-2xl font-bold mb-2">{match.player2.username}</p>
-            <p className="text-sm text-gray-400">
-              {match.player2.wins}W - {match.player2.losses}L
-            </p>
+            <p className="text-2xl font-bold mb-2">{match.player2Name}</p>
             {match.status === 'COMPLETED' && (
               <p className="text-4xl font-bold text-xbox-green mt-4">{match.player2Score}</p>
             )}
@@ -216,7 +212,7 @@ export default function MatchDetail() {
 
         {canBet && selectedPlayer && (
           <div className="bg-gray-700 rounded-lg p-4 mb-6">
-            <h3 className="font-bold mb-3">Placer un pari</h3>
+            <h3 className="font-bold mb-3">Placer un pari sur {selectedPlayer === 'player1' ? match.player1Name : match.player2Name}</h3>
             <div className="flex gap-4">
               <input
                 type="number"
@@ -240,8 +236,14 @@ export default function MatchDetail() {
           </div>
         )}
 
+        {canBet && !selectedPlayer && (
+          <div className="bg-gray-700 rounded-lg p-4 mb-6 text-center">
+            <p className="text-gray-400">Clique sur une équipe pour parier</p>
+          </div>
+        )}
+
         {canSetResult && !showScoreForm && (
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-6">
             <button onClick={() => setShowScoreForm(true)} className="btn-primary flex-1">
               Entrer le résultat
             </button>
@@ -252,11 +254,11 @@ export default function MatchDetail() {
         )}
 
         {showScoreForm && (
-          <div className="bg-gray-700 rounded-lg p-4">
+          <div className="bg-gray-700 rounded-lg p-4 mb-6">
             <h3 className="font-bold mb-4">Entrer le score final</h3>
             <div className="flex gap-4 items-center mb-4">
               <div className="flex-1 text-center">
-                <p className="text-sm text-gray-400 mb-2">{match.player1.username}</p>
+                <p className="text-sm text-gray-400 mb-2">{match.player1Name}</p>
                 <input
                   type="number"
                   value={player1Score}
@@ -267,7 +269,7 @@ export default function MatchDetail() {
               </div>
               <span className="text-xl text-gray-500">-</span>
               <div className="flex-1 text-center">
-                <p className="text-sm text-gray-400 mb-2">{match.player2.username}</p>
+                <p className="text-sm text-gray-400 mb-2">{match.player2Name}</p>
                 <input
                   type="number"
                   value={player2Score}
@@ -296,7 +298,7 @@ export default function MatchDetail() {
                 <div key={bet.id} className="flex justify-between items-center bg-gray-700 rounded-lg p-3">
                   <span>{bet.user?.username}</span>
                   <span className={bet.prediction === 'player1' ? 'text-blue-400' : 'text-orange-400'}>
-                    {bet.prediction === 'player1' ? match.player1.username : match.player2.username}
+                    {bet.prediction === 'player1' ? match.player1Name : match.player2Name}
                   </span>
                   <span className="text-xbox-green font-bold">{bet.amount} coins</span>
                 </div>

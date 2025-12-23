@@ -15,8 +15,6 @@ router.get('/', async (req, res) => {
     const matches = await req.prisma.match.findMany({
       where,
       include: {
-        player1: { select: { id: true, username: true } },
-        player2: { select: { id: true, username: true } },
         bets: { select: { id: true, prediction: true, amount: true } }
       },
       orderBy: { createdAt: 'desc' }
@@ -52,8 +50,6 @@ router.get('/:id', async (req, res) => {
     const match = await req.prisma.match.findUnique({
       where: { id: req.params.id },
       include: {
-        player1: { select: { id: true, username: true, wins: true, losses: true } },
-        player2: { select: { id: true, username: true, wins: true, losses: true } },
         bets: {
           select: {
             id: true,
@@ -79,26 +75,19 @@ router.get('/:id', async (req, res) => {
 // Créer un match
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { game, player1Id, player2Id, scheduledAt } = req.body;
+    const { game, player1Name, player2Name, scheduledAt } = req.body;
 
-    if (!game || !player1Id || !player2Id) {
-      return res.status(400).json({ error: 'Jeu et joueurs requis' });
-    }
-
-    if (player1Id === player2Id) {
-      return res.status(400).json({ error: 'Les joueurs doivent être différents' });
+    if (!game || !player1Name || !player2Name) {
+      return res.status(400).json({ error: 'Jeu et noms des équipes/joueurs requis' });
     }
 
     const match = await req.prisma.match.create({
       data: {
         game,
-        player1Id,
-        player2Id,
+        player1Name,
+        player2Name,
+        createdBy: req.userId,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null
-      },
-      include: {
-        player1: { select: { id: true, username: true } },
-        player2: { select: { id: true, username: true } }
       }
     });
 
@@ -127,19 +116,21 @@ router.patch('/:id/result', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Match non trouvé' });
     }
 
+    // Vérifier que c'est le créateur du match
+    if (match.createdBy !== req.userId) {
+      return res.status(403).json({ error: 'Seul le créateur du match peut entrer le résultat' });
+    }
+
     if (match.status === 'COMPLETED') {
       return res.status(400).json({ error: 'Match déjà terminé' });
     }
 
     // Déterminer le gagnant
-    let winnerId = null;
     let winningPrediction = null;
 
     if (player1Score > player2Score) {
-      winnerId = match.player1Id;
       winningPrediction = 'player1';
     } else if (player2Score > player1Score) {
-      winnerId = match.player2Id;
       winningPrediction = 'player2';
     }
 
@@ -156,14 +147,14 @@ router.patch('/:id/result', authenticate, async (req, res) => {
         data: {
           player1Score,
           player2Score,
-          winnerId,
+          winnerId: winningPrediction,
           status: 'COMPLETED'
         }
       });
 
       // Traiter les paris
       for (const bet of match.bets) {
-        if (winnerId === null) {
+        if (winningPrediction === null) {
           // Match nul - rembourser
           await tx.bet.update({
             where: { id: bet.id },
@@ -205,11 +196,7 @@ router.patch('/:id/result', authenticate, async (req, res) => {
     });
 
     const updatedMatch = await req.prisma.match.findUnique({
-      where: { id: req.params.id },
-      include: {
-        player1: { select: { id: true, username: true } },
-        player2: { select: { id: true, username: true } }
-      }
+      where: { id: req.params.id }
     });
 
     res.json(updatedMatch);
@@ -229,6 +216,11 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
 
     if (!match) {
       return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    // Vérifier que c'est le créateur du match
+    if (match.createdBy !== req.userId) {
+      return res.status(403).json({ error: 'Seul le créateur du match peut annuler' });
     }
 
     if (match.status === 'COMPLETED') {

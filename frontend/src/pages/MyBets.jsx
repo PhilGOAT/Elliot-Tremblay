@@ -105,15 +105,15 @@ export default function MyBets() {
                   <div>
                     <p className="text-lg">
                       <span className={bet.prediction === 'player1' ? 'text-xbox-green font-bold' : ''}>
-                        {bet.match.player1?.username}
+                        {bet.match.player1Name}
                       </span>
                       {' vs '}
                       <span className={bet.prediction === 'player2' ? 'text-xbox-green font-bold' : ''}>
-                        {bet.match.player2?.username}
+                        {bet.match.player2Name}
                       </span>
                     </p>
                     <p className="text-sm text-gray-400">
-                      Pari sur: {bet.prediction === 'player1' ? bet.match.player1?.username : bet.match.player2?.username}
+                      Pari sur: {bet.prediction === 'player1' ? bet.match.player1Name : bet.match.player2Name}
                     </p>
                   </div>
                   <div className="text-right">

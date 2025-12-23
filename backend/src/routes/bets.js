@@ -71,12 +71,7 @@ router.post('/', authenticate, async (req, res) => {
           prediction
         },
         include: {
-          match: {
-            include: {
-              player1: { select: { username: true } },
-              player2: { select: { username: true } }
-            }
-          }
+          match: true
         }
       });
     });
@@ -94,12 +89,7 @@ router.get('/my', authenticate, async (req, res) => {
     const bets = await req.prisma.bet.findMany({
       where: { userId: req.userId },
       include: {
-        match: {
-          include: {
-            player1: { select: { username: true } },
-            player2: { select: { username: true } }
-          }
-        }
+        match: true
       },
       orderBy: { createdAt: 'desc' }
     });
