@@ -22,6 +22,7 @@ model User {
   bets           Bet[]
   matchesAsPlayer1 Match[] @relation("Player1")
   matchesAsPlayer2 Match[] @relation("Player2")
+  notifications  Notification[]
 }
 
 model Match {
@@ -31,6 +32,10 @@ model Match {
   player2Name  String      // Nom libre (ex: "Chiefs", "Adversaire")
   player1Type  PlayerType  @default(HUMAN) // Humain ou CPU
   player2Type  PlayerType  @default(HUMAN) // Humain ou CPU
+  player1Difficulty CpuDifficulty? // Difficulté si CPU
+  player2Difficulty CpuDifficulty? // Difficulté si CPU
+  player1HumanName  String?        // Nom du joueur humain
+  player2HumanName  String?        // Nom du joueur humain
   player1Id    String?     // Optionnel - lié à un user
   player2Id    String?     // Optionnel - lié à un user
   player1      User?       @relation("Player1", fields: [player1Id], references: [id])
@@ -64,6 +69,74 @@ model Bet {
   @@unique([userId, matchId]) // Un seul pari par match par utilisateur
 }
 
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  message   String
+  matchId   String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model Tournament {
+  id           String           @id @default(uuid())
+  name         String
+  game         GameType
+  size         Int              // 4, 8, or 16 teams
+  status       TournamentStatus @default(REGISTRATION)
+  createdBy    String
+  participants TournamentParticipant[]
+  rounds       TournamentRound[]
+  winnerId     String?
+  prizePool    Int              @default(0)
+  entryFee     Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model TournamentParticipant {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  teamName     String
+  playerName   String?    // Nom du joueur humain
+  playerType   PlayerType @default(HUMAN)
+  seed         Int?
+  eliminated   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, teamName])
+}
+
+model TournamentRound {
+  id           String            @id @default(uuid())
+  tournamentId String
+  tournament   Tournament        @relation(fields: [tournamentId], references: [id])
+  roundNumber  Int               // 1=Finals, 2=Semis, 3=Quarters, etc.
+  matches      TournamentMatch[]
+  createdAt    DateTime          @default(now())
+
+  @@unique([tournamentId, roundNumber])
+}
+
+model TournamentMatch {
+  id              String          @id @default(uuid())
+  roundId         String
+  round           TournamentRound @relation(fields: [roundId], references: [id])
+  matchNumber     Int
+  team1Name       String?
+  team2Name       String?
+  team1Score      Int?
+  team2Score      Int?
+  winnerId        String?         // teamName of winner
+  status          MatchStatus     @default(PENDING)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
 enum GameType {
   MADDEN
   NHL
@@ -91,4 +164,26 @@ enum BetStatus {
 enum PlayerType {
   HUMAN
   CPU
+}
+
+enum CpuDifficulty {
+  ROOKIE
+  PRO
+  ALL_PRO
+  ALL_MADDEN
+}
+
+enum NotificationType {
+  BET_WON
+  BET_LOST
+  BET_REFUNDED
+  NEW_MATCH
+  MATCH_RESULT
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }

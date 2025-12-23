@@ -8,6 +8,13 @@ const statusLabels = {
   CANCELLED: 'Annulé'
 };
 
+const difficultyLabels = {
+  ROOKIE: 'Rookie',
+  PRO: 'Pro',
+  ALL_PRO: 'All-Pro',
+  ALL_MADDEN: 'All-Madden'
+};
+
 const statusColors = {
   PENDING: 'text-yellow-400',
   LIVE: 'text-green-400',
@@ -32,6 +39,11 @@ export default function MatchCard({ match }) {
           <p className="text-lg font-bold text-white">
             {match.player1Type === 'CPU' ? '🤖 ' : '👤 '}{match.player1Name}
           </p>
+          <p className="text-xs text-gray-400">
+            {match.player1Type === 'CPU'
+              ? difficultyLabels[match.player1Difficulty] || 'CPU'
+              : match.player1HumanName || 'Humain'}
+          </p>
           {match.status === 'COMPLETED' && (
             <p className="text-3xl font-bold text-xbox-green mt-2">{match.player1Score}</p>
           )}
@@ -49,6 +61,11 @@ export default function MatchCard({ match }) {
         <div className="text-center flex-1">
           <p className="text-lg font-bold text-white">
             {match.player2Type === 'CPU' ? '🤖 ' : '👤 '}{match.player2Name}
+          </p>
+          <p className="text-xs text-gray-400">
+            {match.player2Type === 'CPU'
+              ? difficultyLabels[match.player2Difficulty] || 'CPU'
+              : match.player2HumanName || 'Humain'}
           </p>
           {match.status === 'COMPLETED' && (
             <p className="text-3xl font-bold text-xbox-green mt-2">{match.player2Score}</p>

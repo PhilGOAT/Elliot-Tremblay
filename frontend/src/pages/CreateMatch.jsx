@@ -13,6 +13,13 @@ const games = [
   { value: 'OTHER', label: 'Autre jeu' }
 ];
 
+const difficulties = [
+  { value: 'ROOKIE', label: 'Rookie' },
+  { value: 'PRO', label: 'Pro' },
+  { value: 'ALL_PRO', label: 'All-Pro' },
+  { value: 'ALL_MADDEN', label: 'All-Madden' }
+];
+
 export default function CreateMatch() {
   const navigate = useNavigate();
   const [game, setGame] = useState('MADDEN');
@@ -20,6 +27,10 @@ export default function CreateMatch() {
   const [player2Name, setPlayer2Name] = useState('');
   const [player1Type, setPlayer1Type] = useState('HUMAN');
   const [player2Type, setPlayer2Type] = useState('CPU');
+  const [player1Difficulty, setPlayer1Difficulty] = useState('PRO');
+  const [player2Difficulty, setPlayer2Difficulty] = useState('PRO');
+  const [player1HumanName, setPlayer1HumanName] = useState('');
+  const [player2HumanName, setPlayer2HumanName] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -37,7 +48,11 @@ export default function CreateMatch() {
         player1Name: player1Name.trim(),
         player2Name: player2Name.trim(),
         player1Type,
-        player2Type
+        player2Type,
+        player1Difficulty: player1Type === 'CPU' ? player1Difficulty : null,
+        player2Difficulty: player2Type === 'CPU' ? player2Difficulty : null,
+        player1HumanName: player1Type === 'HUMAN' ? player1HumanName.trim() : null,
+        player2HumanName: player2Type === 'HUMAN' ? player2HumanName.trim() : null
       });
       toast.success('Match créé!');
       navigate(`/matches/${res.data.id}`);
@@ -79,10 +94,10 @@ export default function CreateMatch() {
               value={player1Name}
               onChange={(e) => setPlayer1Name(e.target.value)}
               className="input mb-3"
-              placeholder="Ex: Patriots, Moi..."
+              placeholder="Ex: Patriots, Chiefs..."
               required
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-3">
               <button
                 type="button"
                 onClick={() => setPlayer1Type('HUMAN')}
@@ -106,6 +121,26 @@ export default function CreateMatch() {
                 🤖 CPU
               </button>
             </div>
+            {player1Type === 'HUMAN' && (
+              <input
+                type="text"
+                value={player1HumanName}
+                onChange={(e) => setPlayer1HumanName(e.target.value)}
+                className="input"
+                placeholder="Nom du joueur (ex: Phil, Alex...)"
+              />
+            )}
+            {player1Type === 'CPU' && (
+              <select
+                value={player1Difficulty}
+                onChange={(e) => setPlayer1Difficulty(e.target.value)}
+                className="input"
+              >
+                {difficulties.map(d => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Joueur 2 */}
@@ -118,10 +153,10 @@ export default function CreateMatch() {
               value={player2Name}
               onChange={(e) => setPlayer2Name(e.target.value)}
               className="input mb-3"
-              placeholder="Ex: Chiefs, CPU..."
+              placeholder="Ex: Chiefs, Cowboys..."
               required
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-3">
               <button
                 type="button"
                 onClick={() => setPlayer2Type('HUMAN')}
@@ -145,6 +180,26 @@ export default function CreateMatch() {
                 🤖 CPU
               </button>
             </div>
+            {player2Type === 'HUMAN' && (
+              <input
+                type="text"
+                value={player2HumanName}
+                onChange={(e) => setPlayer2HumanName(e.target.value)}
+                className="input"
+                placeholder="Nom du joueur (ex: Phil, Alex...)"
+              />
+            )}
+            {player2Type === 'CPU' && (
+              <select
+                value={player2Difficulty}
+                onChange={(e) => setPlayer2Difficulty(e.target.value)}
+                className="input"
+              >
+                {difficulties.map(d => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <button

@@ -10,6 +10,9 @@ import CreateMatch from './pages/CreateMatch';
 import MyBets from './pages/MyBets';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
+import Tournaments from './pages/Tournaments';
+import TournamentDetail from './pages/TournamentDetail';
+import CreateTournament from './pages/CreateTournament';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -48,6 +51,12 @@ export default function App() {
           <Route
             path="/profile"
             element={<PrivateRoute><Profile /></PrivateRoute>}
+          />
+          <Route path="/tournaments" element={<Tournaments />} />
+          <Route path="/tournaments/:id" element={<TournamentDetail />} />
+          <Route
+            path="/tournaments/create"
+            element={<PrivateRoute><CreateTournament /></PrivateRoute>}
           />
         </Routes>
       </main>

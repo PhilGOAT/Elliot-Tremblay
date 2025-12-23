@@ -7,6 +7,8 @@ import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import matchRoutes from './routes/matches.js';
 import betRoutes from './routes/bets.js';
+import notificationRoutes from './routes/notifications.js';
+import tournamentRoutes from './routes/tournaments.js';
 
 dotenv.config();
 
@@ -37,6 +39,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/bets', betRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/tournaments', tournamentRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { createNotification } from './notifications.js';
 
 const router = Router();
 
@@ -75,7 +76,11 @@ router.get('/:id', async (req, res) => {
 // Créer un match
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { game, player1Name, player2Name, player1Type, player2Type, scheduledAt } = req.body;
+    const {
+      game, player1Name, player2Name, player1Type, player2Type,
+      player1Difficulty, player2Difficulty, player1HumanName, player2HumanName,
+      scheduledAt
+    } = req.body;
 
     if (!game || !player1Name || !player2Name) {
       return res.status(400).json({ error: 'Jeu et noms des équipes/joueurs requis' });
@@ -88,6 +93,10 @@ router.post('/', authenticate, async (req, res) => {
         player2Name,
         player1Type: player1Type || 'HUMAN',
         player2Type: player2Type || 'HUMAN',
+        player1Difficulty: player1Type === 'CPU' ? (player1Difficulty || 'PRO') : null,
+        player2Difficulty: player2Type === 'CPU' ? (player2Difficulty || 'PRO') : null,
+        player1HumanName: player1Type === 'HUMAN' ? player1HumanName : null,
+        player2HumanName: player2Type === 'HUMAN' ? player2HumanName : null,
         createdBy: req.userId,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null
       }
@@ -166,6 +175,13 @@ router.patch('/:id/result', authenticate, async (req, res) => {
             where: { id: bet.userId },
             data: { balance: { increment: bet.amount } }
           });
+          // Notification remboursement
+          await createNotification(
+            tx, bet.userId, 'BET_REFUNDED',
+            'Pari remboursé',
+            `Match nul! Tu as été remboursé de ${bet.amount} coins.`,
+            match.id
+          );
         } else if (bet.prediction === winningPrediction) {
           // Pari gagné - double de la mise
           const payout = bet.amount * 2;
@@ -181,6 +197,13 @@ router.patch('/:id/result', authenticate, async (req, res) => {
               wins: { increment: 1 }
             }
           });
+          // Notification pari gagné
+          await createNotification(
+            tx, bet.userId, 'BET_WON',
+            'Pari gagné!',
+            `Tu as gagné ${payout} coins sur ${match.player1Name} vs ${match.player2Name}!`,
+            match.id
+          );
         } else {
           // Pari perdu
           await tx.bet.update({
@@ -191,6 +214,13 @@ router.patch('/:id/result', authenticate, async (req, res) => {
             where: { id: bet.userId },
             data: { losses: { increment: 1 } }
           });
+          // Notification pari perdu
+          await createNotification(
+            tx, bet.userId, 'BET_LOST',
+            'Pari perdu',
+            `Tu as perdu ${bet.amount} coins sur ${match.player1Name} vs ${match.player2Name}.`,
+            match.id
+          );
         }
       }
     });

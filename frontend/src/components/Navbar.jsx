@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -25,6 +26,9 @@ export default function Navbar() {
             <Link to="/matches" className="text-gray-300 hover:text-white transition">
               Matchs
             </Link>
+            <Link to="/tournaments" className="text-gray-300 hover:text-white transition">
+              Tournois
+            </Link>
             <Link to="/leaderboard" className="text-gray-300 hover:text-white transition">
               Classement
             </Link>
@@ -43,6 +47,7 @@ export default function Navbar() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
+                <NotificationBell />
                 <Link to="/profile" className="flex items-center space-x-2 text-gray-300 hover:text-white">
                   <span className="text-xbox-green font-bold">{user.balance} coins</span>
                   <span>|</span>

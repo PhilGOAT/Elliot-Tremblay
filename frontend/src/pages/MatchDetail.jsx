@@ -5,6 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import GameBadge from '../components/GameBadge';
 import toast from 'react-hot-toast';
 
+const difficultyLabels = {
+  ROOKIE: 'Rookie',
+  PRO: 'Pro',
+  ALL_PRO: 'All-Pro',
+  ALL_MADDEN: 'All-Madden'
+};
+
 export default function MatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -156,7 +163,9 @@ export default function MatchDetail() {
             } ${match.winnerId === 'player1' ? 'ring-2 ring-xbox-green' : ''}`}
           >
             <p className="text-sm text-gray-400 mb-1">
-              {match.player1Type === 'CPU' ? '🤖 CPU' : '👤 Humain'}
+              {match.player1Type === 'CPU'
+                ? `🤖 CPU (${difficultyLabels[match.player1Difficulty] || 'Pro'})`
+                : `👤 ${match.player1HumanName || 'Humain'}`}
             </p>
             <p className="text-2xl font-bold mb-2">{match.player1Name}</p>
             {match.status === 'COMPLETED' && (
@@ -184,7 +193,9 @@ export default function MatchDetail() {
             } ${match.winnerId === 'player2' ? 'ring-2 ring-xbox-green' : ''}`}
           >
             <p className="text-sm text-gray-400 mb-1">
-              {match.player2Type === 'CPU' ? '🤖 CPU' : '👤 Humain'}
+              {match.player2Type === 'CPU'
+                ? `🤖 CPU (${difficultyLabels[match.player2Difficulty] || 'Pro'})`
+                : `👤 ${match.player2HumanName || 'Humain'}`}
             </p>
             <p className="text-2xl font-bold mb-2">{match.player2Name}</p>
             {match.status === 'COMPLETED' && (
