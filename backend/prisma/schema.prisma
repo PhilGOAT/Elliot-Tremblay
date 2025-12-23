@@ -8,15 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  balance   Int      @default(1000) // Monnaie virtuelle de départ
-  wins      Int      @default(0)
-  losses    Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String    @id @default(uuid())
+  username       String    @unique
+  email          String    @unique
+  password       String
+  balance        Int       @default(1000) // Monnaie virtuelle de départ
+  wins           Int       @default(0)
+  losses         Int       @default(0)
+  lastDailyBonus DateTime? // Dernière réclamation du bonus quotidien
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
   bets           Bet[]

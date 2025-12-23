@@ -1,14 +1,31 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
+import api from '../lib/api';
+import toast from 'react-hot-toast';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [claimingBonus, setClaimingBonus] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleClaimBonus = async () => {
+    setClaimingBonus(true);
+    try {
+      const res = await api.post('/users/daily-bonus');
+      toast.success(res.data.message);
+      refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    } finally {
+      setClaimingBonus(false);
+    }
   };
 
   return (
@@ -47,6 +64,15 @@ export default function Navbar() {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
+                {user.canClaimDailyBonus && (
+                  <button
+                    onClick={handleClaimBonus}
+                    disabled={claimingBonus}
+                    className="bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-1 rounded-lg text-sm font-bold animate-pulse"
+                  >
+                    {claimingBonus ? '...' : '🎁 +100'}
+                  </button>
+                )}
                 <NotificationBell />
                 <Link to="/profile" className="flex items-center space-x-2 text-gray-300 hover:text-white">
                   <span className="text-xbox-green font-bold">{user.balance} coins</span>
