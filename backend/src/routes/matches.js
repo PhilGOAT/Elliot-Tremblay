@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
     const matches = await req.prisma.match.findMany({
       where,
       include: {
-        bets: { select: { id: true, prediction: true, amount: true } }
+        bets: { select: { id: true, prediction: true, amount: true, betType: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -67,6 +67,7 @@ router.get('/:id', async (req, res) => {
             id: true,
             prediction: true,
             amount: true,
+            betType: true,
             user: { select: { username: true } }
           }
         }
