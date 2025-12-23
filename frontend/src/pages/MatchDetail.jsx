@@ -113,8 +113,6 @@ export default function MatchDetail() {
 
   const canBet = user &&
     match.status === 'PENDING' &&
-    match.player1.id !== user.id &&
-    match.player2.id !== user.id &&
     !match.bets.some(b => b.user?.username === user.username);
 
   const isPlayer = user && (match.player1.id === user.id || match.player2.id === user.id);

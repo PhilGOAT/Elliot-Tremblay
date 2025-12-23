@@ -33,11 +33,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Paris fermés pour ce match' });
     }
 
-    // Vérifier que l'utilisateur n'est pas un des joueurs
-    if (match.player1Id === req.userId || match.player2Id === req.userId) {
-      return res.status(400).json({ error: 'Vous ne pouvez pas parier sur votre propre match' });
-    }
-
     // Vérifier le solde
     const user = await req.prisma.user.findUnique({
       where: { id: req.userId }
