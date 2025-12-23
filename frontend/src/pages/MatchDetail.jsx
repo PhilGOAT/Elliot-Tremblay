@@ -192,16 +192,10 @@ export default function MatchDetail() {
         </div>
 
         <div className="flex items-stretch gap-4 mb-8">
-          <button
-            onClick={() => canBet && setSelectedPlayer('player1')}
-            disabled={!canBet}
-            className={`flex-1 p-6 rounded-xl border-2 transition text-center ${
-              selectedPlayer === 'player1'
-                ? 'border-xbox-green bg-xbox-green/20'
-                : canBet
-                  ? 'border-gray-600 hover:border-gray-500'
-                  : 'border-gray-700 opacity-60'
-            } ${match.winnerId === 'player1' ? 'ring-2 ring-xbox-green' : ''}`}
+          <div
+            className={`flex-1 p-6 rounded-xl border-2 text-center ${
+              match.winnerId === 'player1' ? 'border-xbox-green ring-2 ring-xbox-green' : 'border-gray-600'
+            }`}
           >
             <p className="text-sm text-gray-400 mb-1">
               {match.player1Type === 'CPU'
@@ -216,22 +210,16 @@ export default function MatchDetail() {
               <p className="text-xbox-green font-bold">{player1Total} coins</p>
               <p className="text-sm text-gray-500">{player1Bets.length} paris</p>
             </div>
-          </button>
+          </div>
 
           <div className="flex items-center">
             <span className="text-3xl text-gray-500 font-bold">VS</span>
           </div>
 
-          <button
-            onClick={() => canBet && setSelectedPlayer('player2')}
-            disabled={!canBet}
-            className={`flex-1 p-6 rounded-xl border-2 transition text-center ${
-              selectedPlayer === 'player2'
-                ? 'border-xbox-green bg-xbox-green/20'
-                : canBet
-                  ? 'border-gray-600 hover:border-gray-500'
-                  : 'border-gray-700 opacity-60'
-            } ${match.winnerId === 'player2' ? 'ring-2 ring-xbox-green' : ''}`}
+          <div
+            className={`flex-1 p-6 rounded-xl border-2 text-center ${
+              match.winnerId === 'player2' ? 'border-xbox-green ring-2 ring-xbox-green' : 'border-gray-600'
+            }`}
           >
             <p className="text-sm text-gray-400 mb-1">
               {match.player2Type === 'CPU'
@@ -246,7 +234,7 @@ export default function MatchDetail() {
               <p className="text-xbox-green font-bold">{player2Total} coins</p>
               <p className="text-sm text-gray-500">{player2Bets.length} paris</p>
             </div>
-          </button>
+          </div>
         </div>
 
         {totalPool > 0 && (
