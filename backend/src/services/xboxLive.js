@@ -28,7 +28,9 @@ export function getAuthorizationUrl(state) {
     response_type: 'code',
     redirect_uri: XBOX_CONFIG.redirectUri,
     scope: XBOX_CONFIG.scopes,
-    state: state
+    state: state,
+    // Forcer l'écran de sélection de compte (évite passkey)
+    prompt: 'select_account'
   });
 
   return `${URLS.authorize}?${params.toString()}`;
