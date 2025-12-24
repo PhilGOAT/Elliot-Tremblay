@@ -5,14 +5,14 @@ const XBOX_CONFIG = {
   clientId: process.env.XBOX_CLIENT_ID,
   clientSecret: process.env.XBOX_CLIENT_SECRET,
   redirectUri: process.env.XBOX_REDIRECT_URI || 'http://localhost:5173/auth/xbox/callback',
-  // Utiliser seulement les scopes Microsoft Graph de base (pas Xbox)
-  scopes: 'openid profile email User.Read offline_access'
+  // Scopes pour Xbox Live + Microsoft Graph
+  scopes: 'openid profile email User.Read XboxLive.signin offline_access'
 };
 
-// URLs Microsoft/Xbox
+// URLs Microsoft/Xbox (Azure AD v2.0 pour comptes personnels)
 const URLS = {
-  authorize: 'https://login.live.com/oauth20_authorize.srf',
-  token: 'https://login.live.com/oauth20_token.srf',
+  authorize: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize',
+  token: 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
   xboxAuth: 'https://user.auth.xboxlive.com/user/authenticate',
   xstsAuth: 'https://xsts.auth.xboxlive.com/xsts/authorize',
   profile: 'https://profile.xboxlive.com/users/me/profile/settings'
