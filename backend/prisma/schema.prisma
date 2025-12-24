@@ -31,6 +31,14 @@ model User {
   nintendoVerified Boolean @default(false)
   steamVerified  Boolean   @default(false)
 
+  // Xbox Live API Data
+  xboxXuid         String?   // Xbox User ID unique
+  xboxAccessToken  String?   // Token d'accès Microsoft
+  xboxRefreshToken String?   // Token de rafraîchissement
+  xboxTokenExpiry  DateTime? // Expiration du token
+  xboxGamerscore   Int?      // Score Xbox du joueur
+  xboxAvatar       String?   // URL de l'avatar Xbox
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

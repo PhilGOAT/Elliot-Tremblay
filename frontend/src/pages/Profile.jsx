@@ -4,7 +4,7 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 
 const platforms = [
-  { key: 'xboxGamertag', verifiedKey: 'xboxVerified', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
+  { key: 'xboxGamertag', verifiedKey: 'xboxVerified', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox', hasOAuth: true },
   { key: 'psnId', verifiedKey: 'psnVerified', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
   { key: 'eaId', verifiedKey: 'eaVerified', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
   { key: 'nintendoId', verifiedKey: 'nintendoVerified', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
@@ -15,6 +15,7 @@ export default function Profile() {
   const { user, refreshUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [xboxConnecting, setXboxConnecting] = useState(false);
   const [formData, setFormData] = useState({
     xboxGamertag: '',
     psnId: '',
@@ -35,6 +36,71 @@ export default function Profile() {
       });
     }
   }, [user]);
+
+  // Gérer le callback OAuth Xbox
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+
+    if (code && state) {
+      handleXboxCallback(code, state);
+      // Nettoyer l'URL
+      window.history.replaceState({}, '', '/profile');
+    }
+  }, []);
+
+  const handleXboxConnect = async () => {
+    setXboxConnecting(true);
+    try {
+      const res = await api.get('/xbox/auth');
+
+      if (res.data.setup) {
+        toast.error('Xbox API non configurée. Contacte l\'admin.');
+        return;
+      }
+
+      // Sauvegarder le state dans localStorage
+      localStorage.setItem('xbox_oauth_state', res.data.state);
+
+      // Rediriger vers Microsoft
+      window.location.href = res.data.authUrl;
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur connexion Xbox');
+      setXboxConnecting(false);
+    }
+  };
+
+  const handleXboxCallback = async (code, state) => {
+    const savedState = localStorage.getItem('xbox_oauth_state');
+
+    if (state !== savedState) {
+      toast.error('Erreur de sécurité OAuth');
+      return;
+    }
+
+    localStorage.removeItem('xbox_oauth_state');
+
+    try {
+      const res = await api.post('/xbox/callback', { code, state });
+      toast.success(res.data.message);
+      await refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur liaison Xbox');
+    }
+  };
+
+  const handleXboxDisconnect = async () => {
+    if (!confirm('Délier ton compte Xbox?')) return;
+
+    try {
+      await api.delete('/xbox/unlink');
+      toast.success('Compte Xbox délié');
+      await refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    }
+  };
 
   if (!user) return null;
 
@@ -106,11 +172,70 @@ export default function Profile() {
           <p className="text-xl font-bold mt-2">{winRate}%</p>
         </div>
 
+        {/* Section Xbox Live Connection */}
+        <div className="bg-gradient-to-r from-green-900 to-gray-700 rounded-lg p-4 mb-6 text-left border border-green-600">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">🎮</span>
+            <div>
+              <h3 className="font-bold text-green-400">Xbox Live</h3>
+              <p className="text-xs text-gray-400">Connexion officielle Microsoft</p>
+            </div>
+          </div>
+
+          {user.xboxVerified ? (
+            <div className="bg-gray-800/50 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {user.xboxAvatar && (
+                    <img src={user.xboxAvatar} alt="Avatar Xbox" className="w-10 h-10 rounded-full" />
+                  )}
+                  <div>
+                    <p className="font-bold text-white">{user.xboxGamertag}</p>
+                    <p className="text-xs text-gray-400">Gamerscore: {user.xboxGamerscore?.toLocaleString() || 0}</p>
+                  </div>
+                </div>
+                <span className="flex items-center gap-1 text-green-400 text-sm">
+                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                  Vérifié
+                </span>
+              </div>
+              <button
+                onClick={handleXboxDisconnect}
+                className="text-red-400 text-sm hover:underline"
+              >
+                Délier le compte
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleXboxConnect}
+              disabled={xboxConnecting}
+              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+            >
+              {xboxConnecting ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Connexion...
+                </>
+              ) : (
+                <>
+                  <span>🔗</span>
+                  Connecter mon compte Xbox
+                </>
+              )}
+            </button>
+          )}
+
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Vérifie ton gamertag et accède à ton activité Xbox
+          </p>
+        </div>
+
         {/* Section Gamertags */}
         <div className="bg-gray-700 rounded-lg p-4 mb-6 text-left">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold">Mes plateformes</h3>
+              <h3 className="font-bold">Autres plateformes</h3>
               <div className="flex items-center gap-1 text-xs text-gray-400">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 <span>Vérifié</span>
@@ -130,7 +255,7 @@ export default function Profile() {
 
           {editing ? (
             <div className="space-y-3">
-              {platforms.map(platform => (
+              {platforms.filter(p => !p.hasOAuth).map(platform => (
                 <div key={platform.key} className="flex items-center gap-3">
                   <span className="text-xl w-8">{platform.icon}</span>
                   <input
@@ -164,8 +289,8 @@ export default function Profile() {
             </div>
           ) : (
             <div className="space-y-2">
-              {hasAnyGamertag ? (
-                platforms.map(platform => (
+              {platforms.filter(p => !p.hasOAuth).some(p => user[p.key]) ? (
+                platforms.filter(p => !p.hasOAuth).map(platform => (
                   user[platform.key] && (
                     <div key={platform.key} className="flex items-center gap-3">
                       <span className="text-xl w-8">{platform.icon}</span>
@@ -180,15 +305,11 @@ export default function Profile() {
                 ))
               ) : (
                 <p className="text-gray-500 text-center py-2">
-                  Aucune plateforme liée. Clique sur "Modifier" pour ajouter tes gamertags!
+                  Aucune autre plateforme liée. Clique sur "Modifier" pour ajouter tes gamertags!
                 </p>
               )}
             </div>
           )}
-
-          <p className="text-xs text-gray-500 mt-4 text-center">
-            La vérification automatique des comptes arrive bientôt!
-          </p>
         </div>
 
         <p className="text-sm text-gray-500">

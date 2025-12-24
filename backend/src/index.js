@@ -9,6 +9,7 @@ import matchRoutes from './routes/matches.js';
 import betRoutes from './routes/bets.js';
 import notificationRoutes from './routes/notifications.js';
 import tournamentRoutes from './routes/tournaments.js';
+import xboxRoutes from './routes/xbox.js';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/bets', betRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/tournaments', tournamentRoutes);
+app.use('/api/xbox', xboxRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

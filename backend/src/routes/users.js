@@ -26,6 +26,10 @@ router.get('/me', authenticate, async (req, res) => {
         eaVerified: true,
         nintendoVerified: true,
         steamVerified: true,
+        // Xbox Live API data
+        xboxXuid: true,
+        xboxGamerscore: true,
+        xboxAvatar: true,
         createdAt: true
       }
     });
