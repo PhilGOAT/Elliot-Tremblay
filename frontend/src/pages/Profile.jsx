@@ -4,11 +4,11 @@ import api from '../lib/api';
 import toast from 'react-hot-toast';
 
 const platforms = [
-  { key: 'xboxGamertag', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
-  { key: 'psnId', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
-  { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
-  { key: 'nintendoId', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
-  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
+  { key: 'xboxGamertag', verifiedKey: 'xboxVerified', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
+  { key: 'psnId', verifiedKey: 'psnVerified', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
+  { key: 'eaId', verifiedKey: 'eaVerified', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
+  { key: 'nintendoId', verifiedKey: 'nintendoVerified', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
+  { key: 'steamName', verifiedKey: 'steamVerified', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
 ];
 
 export default function Profile() {
@@ -58,6 +58,16 @@ export default function Profile() {
 
   const hasAnyGamertag = platforms.some(p => user[p.key]);
 
+  // Indicateur de statut de vérification
+  const VerificationBadge = ({ verified, hasGamertag }) => {
+    if (!hasGamertag) return null;
+    return verified ? (
+      <span className="w-3 h-3 bg-green-500 rounded-full" title="Vérifié"></span>
+    ) : (
+      <span className="w-3 h-3 bg-red-500 rounded-full" title="Non vérifié"></span>
+    );
+  };
+
   return (
     <div className="max-w-md mx-auto">
       <div className="card text-center">
@@ -99,7 +109,15 @@ export default function Profile() {
         {/* Section Gamertags */}
         <div className="bg-gray-700 rounded-lg p-4 mb-6 text-left">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold">Mes plateformes</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold">Mes plateformes</h3>
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                <span>Vérifié</span>
+                <span className="w-2 h-2 bg-red-500 rounded-full ml-2"></span>
+                <span>Non vérifié</span>
+              </div>
+            </div>
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
@@ -121,6 +139,10 @@ export default function Profile() {
                     onChange={(e) => setFormData({ ...formData, [platform.key]: e.target.value })}
                     placeholder={platform.placeholder}
                     className="input flex-1 text-sm"
+                  />
+                  <VerificationBadge
+                    verified={user[platform.verifiedKey]}
+                    hasGamertag={!!user[platform.key]}
                   />
                 </div>
               ))}
@@ -148,7 +170,11 @@ export default function Profile() {
                     <div key={platform.key} className="flex items-center gap-3">
                       <span className="text-xl w-8">{platform.icon}</span>
                       <span className="text-gray-300">{platform.label}:</span>
-                      <span className="text-white font-medium">{user[platform.key]}</span>
+                      <span className="text-white font-medium flex-1">{user[platform.key]}</span>
+                      <VerificationBadge
+                        verified={user[platform.verifiedKey]}
+                        hasGamertag={true}
+                      />
                     </div>
                   )
                 ))
@@ -159,6 +185,10 @@ export default function Profile() {
               )}
             </div>
           )}
+
+          <p className="text-xs text-gray-500 mt-4 text-center">
+            La vérification automatique des comptes arrive bientôt!
+          </p>
         </div>
 
         <p className="text-sm text-gray-500">

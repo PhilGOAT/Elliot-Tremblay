@@ -24,6 +24,13 @@ model User {
   nintendoId     String?   // Nintendo Switch Online
   steamName      String?   // Steam (PC)
 
+  // Statut de vérification des plateformes
+  xboxVerified   Boolean   @default(false)
+  psnVerified    Boolean   @default(false)
+  eaVerified     Boolean   @default(false)
+  nintendoVerified Boolean @default(false)
+  steamVerified  Boolean   @default(false)
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

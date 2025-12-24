@@ -21,6 +21,11 @@ router.get('/me', authenticate, async (req, res) => {
         eaId: true,
         nintendoId: true,
         steamName: true,
+        xboxVerified: true,
+        psnVerified: true,
+        eaVerified: true,
+        nintendoVerified: true,
+        steamVerified: true,
         createdAt: true
       }
     });
