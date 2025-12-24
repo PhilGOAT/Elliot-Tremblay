@@ -67,40 +67,23 @@ router.post('/callback', authenticate, async (req, res) => {
     // Échanger le code contre un token Microsoft
     const tokenData = await xboxService.exchangeCodeForToken(code);
 
-    // Essayer d'authentifier avec Xbox Live
-    const xboxData = await xboxService.authenticateWithXboxLive(tokenData.access_token);
+    // Utiliser Microsoft Graph pour obtenir le profil (plus fiable, pas de restrictions)
+    const msProfile = await getMicrosoftProfile(tokenData.access_token);
 
-    let gamertag, xuid, gamerscore, avatar;
-
-    if (xboxData) {
-      // Xbox Live auth réussie
-      gamertag = xboxData.gamertag;
-      xuid = xboxData.xuid;
-      gamerscore = 0;
-      avatar = null;
-
-      // Essayer d'obtenir le profil Xbox (peut échouer sans permissions)
-      try {
-        const profile = await xboxService.getXboxProfile(xboxData.xblToken, xboxData.userHash);
-        if (profile) {
-          gamerscore = parseInt(profile.Gamerscore) || 0;
-          avatar = profile.GameDisplayPicRaw || null;
-        }
-      } catch (e) {
-        console.log('Could not fetch Xbox profile, using basic info');
-      }
-    } else {
-      // Fallback: utiliser Microsoft Graph
-      const msProfile = await getMicrosoftProfile(tokenData.access_token);
-      if (msProfile) {
-        gamertag = msProfile.displayName || 'Microsoft User';
-        xuid = msProfile.id;
-        gamerscore = 0;
-        avatar = null;
-      } else {
-        throw new Error('Impossible de récupérer le profil');
-      }
+    if (!msProfile) {
+      throw new Error('Impossible de récupérer le profil Microsoft');
     }
+
+    // Récupérer le gamertag depuis le profil utilisateur s'il existe
+    const currentUser = await req.prisma.user.findUnique({
+      where: { id: req.userId }
+    });
+
+    // Utiliser le displayName de Microsoft comme gamertag vérifié
+    const gamertag = msProfile.displayName || currentUser?.xboxGamertag || 'Xbox User';
+    const xuid = msProfile.id;
+    const gamerscore = 0;
+    const avatar = null;
 
     // Mettre à jour l'utilisateur
     await req.prisma.user.update({

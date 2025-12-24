@@ -177,8 +177,8 @@ export default function Profile() {
           <div className="flex items-center gap-3 mb-3">
             <span className="text-3xl">🎮</span>
             <div>
-              <h3 className="font-bold text-green-400">Xbox Live</h3>
-              <p className="text-xs text-gray-400">Connexion officielle Microsoft</p>
+              <h3 className="font-bold text-green-400">Compte Microsoft</h3>
+              <p className="text-xs text-gray-400">Vérifie ton identité avec Microsoft</p>
             </div>
           </div>
 
@@ -220,14 +220,14 @@ export default function Profile() {
               ) : (
                 <>
                   <span>🔗</span>
-                  Connecter mon compte Xbox
+                  Connecter mon compte Microsoft
                 </>
               )}
             </button>
           )}
 
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Vérifie ton gamertag et accède à ton activité Xbox
+            Prouve que tu as un vrai compte Microsoft/Xbox
           </p>
         </div>
 

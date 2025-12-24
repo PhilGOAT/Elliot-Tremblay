@@ -5,7 +5,8 @@ const XBOX_CONFIG = {
   clientId: process.env.XBOX_CLIENT_ID,
   clientSecret: process.env.XBOX_CLIENT_SECRET,
   redirectUri: process.env.XBOX_REDIRECT_URI || 'http://localhost:5173/auth/xbox/callback',
-  scopes: 'XboxLive.signin XboxLive.offline_access'
+  // Utiliser seulement les scopes Microsoft Graph de base (pas Xbox)
+  scopes: 'openid profile email User.Read offline_access'
 };
 
 // URLs Microsoft/Xbox
