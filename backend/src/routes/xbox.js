@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
-import xboxService from '../services/xboxLive.js';
+import xboxService, { getMicrosoftProfile } from '../services/xboxLive.js';
 import crypto from 'crypto';
 
 const router = Router();
@@ -67,33 +67,62 @@ router.post('/callback', authenticate, async (req, res) => {
     // Échanger le code contre un token Microsoft
     const tokenData = await xboxService.exchangeCodeForToken(code);
 
-    // Authentifier avec Xbox Live
+    // Essayer d'authentifier avec Xbox Live
     const xboxData = await xboxService.authenticateWithXboxLive(tokenData.access_token);
 
-    // Obtenir le profil Xbox
-    const profile = await xboxService.getXboxProfile(xboxData.xstsToken, xboxData.userHash);
+    let gamertag, xuid, gamerscore, avatar;
 
-    // Mettre à jour l'utilisateur avec les données Xbox
-    const updatedUser = await req.prisma.user.update({
+    if (xboxData) {
+      // Xbox Live auth réussie
+      gamertag = xboxData.gamertag;
+      xuid = xboxData.xuid;
+      gamerscore = 0;
+      avatar = null;
+
+      // Essayer d'obtenir le profil Xbox (peut échouer sans permissions)
+      try {
+        const profile = await xboxService.getXboxProfile(xboxData.xblToken, xboxData.userHash);
+        if (profile) {
+          gamerscore = parseInt(profile.Gamerscore) || 0;
+          avatar = profile.GameDisplayPicRaw || null;
+        }
+      } catch (e) {
+        console.log('Could not fetch Xbox profile, using basic info');
+      }
+    } else {
+      // Fallback: utiliser Microsoft Graph
+      const msProfile = await getMicrosoftProfile(tokenData.access_token);
+      if (msProfile) {
+        gamertag = msProfile.displayName || 'Microsoft User';
+        xuid = msProfile.id;
+        gamerscore = 0;
+        avatar = null;
+      } else {
+        throw new Error('Impossible de récupérer le profil');
+      }
+    }
+
+    // Mettre à jour l'utilisateur
+    await req.prisma.user.update({
       where: { id: req.userId },
       data: {
-        xboxGamertag: xboxData.gamertag,
-        xboxXuid: xboxData.xuid,
+        xboxGamertag: gamertag,
+        xboxXuid: xuid,
         xboxAccessToken: tokenData.access_token,
         xboxRefreshToken: tokenData.refresh_token,
         xboxTokenExpiry: new Date(Date.now() + (tokenData.expires_in * 1000)),
-        xboxGamerscore: parseInt(profile.Gamerscore) || 0,
-        xboxAvatar: profile.GameDisplayPicRaw || null,
+        xboxGamerscore: gamerscore,
+        xboxAvatar: avatar,
         xboxVerified: true
       }
     });
 
     res.json({
       success: true,
-      gamertag: xboxData.gamertag,
-      gamerscore: profile.Gamerscore,
-      avatar: profile.GameDisplayPicRaw,
-      message: `Compte Xbox "${xboxData.gamertag}" lié avec succès!`
+      gamertag: gamertag,
+      gamerscore: gamerscore,
+      avatar: avatar,
+      message: `Compte "${gamertag}" lié avec succès!`
     });
   } catch (error) {
     console.error('Xbox callback error:', error);

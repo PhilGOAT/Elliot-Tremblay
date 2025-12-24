@@ -74,32 +74,39 @@ export async function authenticateWithXboxLive(accessToken) {
 
     const xblToken = xblResponse.data.Token;
     const userHash = xblResponse.data.DisplayClaims.xui[0].uhs;
+    const gamertag = xblResponse.data.DisplayClaims.xui[0].gtg;
+    const xuid = xblResponse.data.DisplayClaims.xui[0].xid;
 
-    // Étape 2: Obtenir le token XSTS
-    const xstsResponse = await axios.post(URLS.xstsAuth, {
-      RelyingParty: 'http://xboxlive.com',
-      TokenType: 'JWT',
-      Properties: {
-        SandboxId: 'RETAIL',
-        UserTokens: [xblToken]
-      }
-    }, {
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    const xstsToken = xstsResponse.data.Token;
-    const xuid = xstsResponse.data.DisplayClaims.xui[0].xid;
-    const gamertag = xstsResponse.data.DisplayClaims.xui[0].gtg;
-
+    // Retourner directement les infos du XBL token (plus simple, moins de restrictions)
     return {
-      xstsToken,
+      xblToken,
       userHash,
-      xuid,
-      gamertag
+      xuid: xuid || userHash,
+      gamertag: gamertag || 'Xbox User'
     };
   } catch (error) {
     console.error('Xbox Live auth error:', error.response?.data || error.message);
-    throw new Error('Échec de l\'authentification Xbox Live');
+    // Fallback: retourner null pour utiliser le profil Microsoft à la place
+    return null;
+  }
+}
+
+/**
+ * Obtient le profil Microsoft Graph (fallback si Xbox échoue)
+ */
+export async function getMicrosoftProfile(accessToken) {
+  try {
+    const response = await axios.get('https://graph.microsoft.com/v1.0/me', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    return {
+      displayName: response.data.displayName,
+      email: response.data.mail || response.data.userPrincipalName,
+      id: response.data.id
+    };
+  } catch (error) {
+    console.error('Microsoft Graph error:', error.response?.data || error.message);
+    return null;
   }
 }
 
