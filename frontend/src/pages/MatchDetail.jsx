@@ -51,6 +51,9 @@ export default function MatchDetail() {
   const [showScoreForm, setShowScoreForm] = useState(false);
   const [player1Score, setPlayer1Score] = useState(0);
   const [player2Score, setPlayer2Score] = useState(0);
+  const [showSubmitScore, setShowSubmitScore] = useState(false);
+  const [submitP1Score, setSubmitP1Score] = useState(0);
+  const [submitP2Score, setSubmitP2Score] = useState(0);
 
   useEffect(() => {
     fetchMatch();
@@ -150,6 +153,32 @@ export default function MatchDetail() {
     }
   };
 
+  const handleSubmitScore = async () => {
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/matches/${id}/submit-score`, {
+        player1Score: parseInt(submitP1Score),
+        player2Score: parseInt(submitP2Score)
+      });
+
+      if (res.data.validated) {
+        toast.success('Match validé! Les scores correspondent.');
+      } else if (res.data.dispute) {
+        toast.error('Conflit de scores! Les résultats ne correspondent pas.');
+      } else {
+        toast.success(res.data.message);
+      }
+
+      fetchMatch();
+      refreshUser();
+      setShowSubmitScore(false);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -162,6 +191,17 @@ export default function MatchDetail() {
 
   const isCreator = user && match.createdBy === user.id;
   const canSetResult = isCreator && match.status !== 'COMPLETED' && match.status !== 'CANCELLED';
+
+  // Vérifier si l'utilisateur est un joueur du match
+  const isPlayer1 = user && (match.player1HumanName === user.username || match.createdBy === user.id);
+  const isPlayer2 = user && match.player2HumanName === user.username;
+  const isPlayer = isPlayer1 || isPlayer2;
+
+  // Vérifier l'état des soumissions
+  const player1HasSubmitted = !!match.player1SubmittedAt;
+  const player2HasSubmitted = !!match.player2SubmittedAt;
+  const userHasSubmitted = (isPlayer1 && player1HasSubmitted) || (isPlayer2 && player2HasSubmitted);
+  const canSubmitScore = isPlayer && !userHasSubmitted && match.status !== 'COMPLETED' && match.status !== 'CANCELLED';
 
   // Filtrer les paris par type
   const winnerBets = match.bets.filter(b => (b.betType || 'WINNER') === 'WINNER');
@@ -462,10 +502,137 @@ export default function MatchDetail() {
           </div>
         )}
 
+        {/* Section de soumission de score (double confirmation) */}
+        {isPlayer && match.status !== 'COMPLETED' && match.status !== 'CANCELLED' && (
+          <div className="bg-gray-700 rounded-lg p-4 mb-6">
+            <h3 className="font-bold mb-3 flex items-center gap-2">
+              📊 Soumettre le résultat
+              <span className="text-xs bg-blue-600 px-2 py-1 rounded">Double confirmation</span>
+            </h3>
+
+            {match.scoreDispute && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-3 mb-4">
+                <p className="text-red-400 font-medium">⚠️ Conflit de scores!</p>
+                <p className="text-sm text-gray-300 mt-1">
+                  Les scores soumis ne correspondent pas. Un administrateur doit vérifier.
+                </p>
+                {match.player1SubmittedP1Score !== undefined && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    {match.player1HumanName || 'Joueur 1'}: {match.player1SubmittedP1Score} - {match.player1SubmittedP2Score}
+                  </p>
+                )}
+                {match.player2SubmittedP1Score !== undefined && (
+                  <p className="text-xs text-gray-400">
+                    {match.player2HumanName || 'Joueur 2'}: {match.player2SubmittedP1Score} - {match.player2SubmittedP2Score}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!match.scoreDispute && (
+              <>
+                <div className="flex gap-4 mb-4">
+                  <div className={`flex-1 p-3 rounded-lg border-2 ${player1HasSubmitted ? 'border-green-500 bg-green-900/30' : 'border-gray-600'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">{match.player1HumanName || 'Joueur 1'}</span>
+                      {player1HasSubmitted ? (
+                        <span className="text-green-400 text-xs">✓ Soumis</span>
+                      ) : (
+                        <span className="text-yellow-400 text-xs">En attente</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`flex-1 p-3 rounded-lg border-2 ${player2HasSubmitted ? 'border-green-500 bg-green-900/30' : 'border-gray-600'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">{match.player2HumanName || 'Joueur 2'}</span>
+                      {player2HasSubmitted ? (
+                        <span className="text-green-400 text-xs">✓ Soumis</span>
+                      ) : (
+                        <span className="text-yellow-400 text-xs">En attente</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {canSubmitScore && !showSubmitScore && (
+                  <button
+                    onClick={() => setShowSubmitScore(true)}
+                    className="btn-primary w-full"
+                  >
+                    Soumettre mon score
+                  </button>
+                )}
+
+                {userHasSubmitted && !player1HasSubmitted && !player2HasSubmitted && (
+                  <p className="text-sm text-gray-400 text-center">
+                    Tu as soumis ton score. En attente de l'adversaire...
+                  </p>
+                )}
+
+                {userHasSubmitted && (
+                  <p className="text-sm text-green-400 text-center">
+                    ✓ Tu as déjà soumis ton score
+                  </p>
+                )}
+
+                {showSubmitScore && (
+                  <div className="mt-4 p-4 bg-gray-800 rounded-lg">
+                    <p className="text-sm text-gray-300 mb-3">
+                      Entre le score final du match. Si l'autre joueur entre le même score, le match sera validé automatiquement.
+                    </p>
+                    <div className="flex gap-4 items-center mb-4">
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-gray-400 mb-2">{match.player1Name}</p>
+                        <input
+                          type="number"
+                          value={submitP1Score}
+                          onChange={(e) => setSubmitP1Score(e.target.value)}
+                          min="0"
+                          className="input text-center text-2xl"
+                        />
+                      </div>
+                      <span className="text-xl text-gray-500">-</span>
+                      <div className="flex-1 text-center">
+                        <p className="text-sm text-gray-400 mb-2">{match.player2Name}</p>
+                        <input
+                          type="number"
+                          value={submitP2Score}
+                          onChange={(e) => setSubmitP2Score(e.target.value)}
+                          min="0"
+                          className="input text-center text-2xl"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={handleSubmitScore}
+                        disabled={submitting}
+                        className="btn-primary flex-1"
+                      >
+                        {submitting ? 'Envoi...' : 'Confirmer le score'}
+                      </button>
+                      <button
+                        onClick={() => setShowSubmitScore(false)}
+                        className="btn-secondary"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <p className="text-xs text-gray-500 mt-3 text-center">
+              Les deux joueurs doivent soumettre le même score pour valider le match
+            </p>
+          </div>
+        )}
+
         {canSetResult && !showScoreForm && (
           <div className="flex gap-4 mb-6">
             <button onClick={() => setShowScoreForm(true)} className="btn-primary flex-1">
-              Entrer le résultat
+              Entrer le résultat (admin)
             </button>
             <button onClick={handleCancel} className="btn-secondary">
               Annuler le match

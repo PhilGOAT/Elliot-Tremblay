@@ -60,6 +60,15 @@ model Match {
   player2Score Int?
   winnerId     String?
   status       MatchStatus @default(PENDING)
+
+  // Double confirmation des scores
+  player1SubmittedP1Score Int?    // Score P1 soumis par joueur 1
+  player1SubmittedP2Score Int?    // Score P2 soumis par joueur 1
+  player1SubmittedAt      DateTime?
+  player2SubmittedP1Score Int?    // Score P1 soumis par joueur 2
+  player2SubmittedP2Score Int?    // Score P2 soumis par joueur 2
+  player2SubmittedAt      DateTime?
+  scoreDispute            Boolean  @default(false) // Conflit de scores
   createdBy    String      // User qui a créé le match
   scheduledAt  DateTime?
   createdAt    DateTime    @default(now())

@@ -284,6 +284,259 @@ router.patch('/:id/result', authenticate, async (req, res) => {
   }
 });
 
+// Soumettre le score (double confirmation)
+router.post('/:id/submit-score', authenticate, async (req, res) => {
+  try {
+    const { player1Score, player2Score } = req.body;
+
+    if (player1Score === undefined || player2Score === undefined) {
+      return res.status(400).json({ error: 'Les deux scores sont requis' });
+    }
+
+    if (player1Score < 0 || player2Score < 0) {
+      return res.status(400).json({ error: 'Les scores doivent être positifs' });
+    }
+
+    const match = await req.prisma.match.findUnique({
+      where: { id: req.params.id },
+      include: { bets: true }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    if (match.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Match déjà terminé' });
+    }
+
+    if (match.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Match annulé' });
+    }
+
+    // Identifier si l'utilisateur est joueur 1 ou joueur 2
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.userId }
+    });
+
+    const isPlayer1 = match.player1HumanName === user.username || match.createdBy === req.userId;
+    const isPlayer2 = match.player2HumanName === user.username;
+
+    if (!isPlayer1 && !isPlayer2) {
+      return res.status(403).json({ error: 'Tu ne participes pas à ce match' });
+    }
+
+    const now = new Date();
+
+    if (isPlayer1) {
+      // Joueur 1 soumet son score
+      if (match.player1SubmittedAt) {
+        return res.status(400).json({ error: 'Tu as déjà soumis ton score' });
+      }
+
+      await req.prisma.match.update({
+        where: { id: req.params.id },
+        data: {
+          player1SubmittedP1Score: player1Score,
+          player1SubmittedP2Score: player2Score,
+          player1SubmittedAt: now,
+          status: 'LIVE'
+        }
+      });
+
+      // Vérifier si l'autre joueur a déjà soumis
+      if (match.player2SubmittedAt) {
+        return await checkAndValidateScores(req, res, req.params.id, player1Score, player2Score, match.player2SubmittedP1Score, match.player2SubmittedP2Score);
+      }
+
+      return res.json({
+        message: 'Score soumis! En attente de la confirmation de l\'adversaire.',
+        waitingFor: 'player2'
+      });
+    } else {
+      // Joueur 2 soumet son score
+      if (match.player2SubmittedAt) {
+        return res.status(400).json({ error: 'Tu as déjà soumis ton score' });
+      }
+
+      await req.prisma.match.update({
+        where: { id: req.params.id },
+        data: {
+          player2SubmittedP1Score: player1Score,
+          player2SubmittedP2Score: player2Score,
+          player2SubmittedAt: now,
+          status: 'LIVE'
+        }
+      });
+
+      // Vérifier si l'autre joueur a déjà soumis
+      if (match.player1SubmittedAt) {
+        return await checkAndValidateScores(req, res, req.params.id, match.player1SubmittedP1Score, match.player1SubmittedP2Score, player1Score, player2Score);
+      }
+
+      return res.json({
+        message: 'Score soumis! En attente de la confirmation de l\'adversaire.',
+        waitingFor: 'player1'
+      });
+    }
+  } catch (error) {
+    console.error('Submit score error:', error);
+    res.status(500).json({ error: 'Erreur lors de la soumission du score' });
+  }
+});
+
+// Fonction helper pour vérifier et valider les scores
+async function checkAndValidateScores(req, res, matchId, p1SubmittedP1, p1SubmittedP2, p2SubmittedP1, p2SubmittedP2) {
+  // Les deux joueurs ont soumis, vérifier si les scores correspondent
+  if (p1SubmittedP1 === p2SubmittedP1 && p1SubmittedP2 === p2SubmittedP2) {
+    // Scores identiques! Valider automatiquement le match
+    const player1Score = p1SubmittedP1;
+    const player2Score = p1SubmittedP2;
+
+    const match = await req.prisma.match.findUnique({
+      where: { id: matchId },
+      include: { bets: true }
+    });
+
+    // Déterminer le gagnant
+    let winningPrediction = null;
+    if (player1Score > player2Score) {
+      winningPrediction = 'player1';
+    } else if (player2Score > player1Score) {
+      winningPrediction = 'player2';
+    }
+
+    // Calculer les stats du match selon le sport
+    const thresholds = GAME_THRESHOLDS[match.game] || GAME_THRESHOLDS.OTHER;
+    const scoreDiff = Math.abs(player1Score - player2Score);
+    const totalScore = player1Score + player2Score;
+    const isCloseMatch = scoreDiff <= thresholds.closeMatch;
+    const isHighScore = totalScore >= thresholds.highScore;
+
+    // Mise à jour transactionnelle
+    await req.prisma.$transaction(async (tx) => {
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          player1Score,
+          player2Score,
+          winnerId: winningPrediction,
+          status: 'COMPLETED'
+        }
+      });
+
+      // Traiter les paris (même logique que dans /:id/result)
+      for (const bet of match.bets) {
+        const betType = bet.betType || 'WINNER';
+        let betWon = false;
+        let betRefunded = false;
+
+        if (betType === 'WINNER') {
+          if (winningPrediction === null) {
+            betRefunded = true;
+          } else {
+            betWon = bet.prediction === winningPrediction;
+          }
+        } else if (betType === 'CLOSE_MATCH') {
+          betWon = (bet.prediction === 'yes' && isCloseMatch) ||
+                   (bet.prediction === 'no' && !isCloseMatch);
+        } else if (betType === 'HIGH_SCORE') {
+          betWon = (bet.prediction === 'yes' && isHighScore) ||
+                   (bet.prediction === 'no' && !isHighScore);
+        }
+
+        if (betRefunded) {
+          await tx.bet.update({
+            where: { id: bet.id },
+            data: { status: 'REFUNDED', payout: bet.amount }
+          });
+          await tx.user.update({
+            where: { id: bet.userId },
+            data: { balance: { increment: bet.amount } }
+          });
+          await createNotification(
+            tx, bet.userId, 'BET_REFUNDED',
+            'Pari remboursé',
+            `Match nul! Tu as été remboursé de ${bet.amount} coins.`,
+            matchId
+          );
+        } else if (betWon) {
+          const payout = bet.amount * 2;
+          await tx.bet.update({
+            where: { id: bet.id },
+            data: { status: 'WON', payout }
+          });
+          await tx.user.update({
+            where: { id: bet.userId },
+            data: {
+              balance: { increment: payout },
+              wins: { increment: 1 }
+            }
+          });
+
+          let message = `Tu as gagné ${payout} coins!`;
+          if (betType === 'CLOSE_MATCH') {
+            message = `Match serré (écart ${scoreDiff})! Tu as gagné ${payout} coins!`;
+          } else if (betType === 'HIGH_SCORE') {
+            message = `Score total ${totalScore}! Tu as gagné ${payout} coins!`;
+          }
+
+          await createNotification(
+            tx, bet.userId, 'BET_WON',
+            'Pari gagné!',
+            message,
+            matchId
+          );
+        } else {
+          await tx.bet.update({
+            where: { id: bet.id },
+            data: { status: 'LOST', payout: 0 }
+          });
+          await tx.user.update({
+            where: { id: bet.userId },
+            data: { losses: { increment: 1 } }
+          });
+
+          let message = `Tu as perdu ${bet.amount} coins.`;
+          if (betType === 'CLOSE_MATCH') {
+            message = `Écart de ${scoreDiff} points. Tu as perdu ${bet.amount} coins.`;
+          } else if (betType === 'HIGH_SCORE') {
+            message = `Score total ${totalScore}. Tu as perdu ${bet.amount} coins.`;
+          }
+
+          await createNotification(
+            tx, bet.userId, 'BET_LOST',
+            'Pari perdu',
+            message,
+            matchId
+          );
+        }
+      }
+    });
+
+    return res.json({
+      message: 'Scores confirmés! Match validé automatiquement.',
+      validated: true,
+      player1Score,
+      player2Score,
+      winner: winningPrediction
+    });
+  } else {
+    // Scores différents! Créer un conflit
+    await req.prisma.match.update({
+      where: { id: matchId },
+      data: { scoreDispute: true }
+    });
+
+    return res.json({
+      message: 'Conflit de scores! Les scores soumis ne correspondent pas. Un administrateur va vérifier.',
+      dispute: true,
+      player1Submission: { p1: p1SubmittedP1, p2: p1SubmittedP2 },
+      player2Submission: { p1: p2SubmittedP1, p2: p2SubmittedP2 }
+    });
+  }
+}
+
 // Annuler un match
 router.patch('/:id/cancel', authenticate, async (req, res) => {
   try {
