@@ -4,9 +4,10 @@ import axios from 'axios';
 const XBOX_CONFIG = {
   clientId: process.env.XBOX_CLIENT_ID,
   clientSecret: process.env.XBOX_CLIENT_SECRET,
-  redirectUri: process.env.XBOX_REDIRECT_URI || 'http://localhost:5173/auth/xbox/callback',
-  // Scopes pour Xbox Live + Microsoft Graph
-  scopes: 'openid profile email User.Read XboxLive.signin offline_access'
+  // Le redirect doit correspondre exactement à ce qui est configuré dans Azure Portal
+  redirectUri: process.env.XBOX_REDIRECT_URI || 'https://elliot-frontend-production.up.railway.app/profile',
+  // Scopes pour Microsoft Graph (XboxLive.signin requiert approbation spéciale)
+  scopes: 'openid profile email User.Read offline_access'
 };
 
 // URLs Microsoft/Xbox (Azure AD v2.0 pour comptes personnels)

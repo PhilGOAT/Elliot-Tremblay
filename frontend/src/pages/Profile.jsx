@@ -177,8 +177,8 @@ export default function Profile() {
           <div className="flex items-center gap-3 mb-3">
             <span className="text-3xl">🎮</span>
             <div>
-              <h3 className="font-bold text-green-400">Compte Microsoft</h3>
-              <p className="text-xs text-gray-400">Vérifie ton identité avec Microsoft</p>
+              <h3 className="font-bold text-green-400">Compte Microsoft / Xbox</h3>
+              <p className="text-xs text-gray-400">Vérifie que tu as un vrai compte Microsoft</p>
             </div>
           </div>
 
@@ -227,7 +227,7 @@ export default function Profile() {
           )}
 
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Prouve que tu as un vrai compte Microsoft/Xbox
+            Connecte-toi avec ton compte Microsoft pour prouver ton identité
           </p>
         </div>
 
