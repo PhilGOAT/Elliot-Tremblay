@@ -8,7 +8,8 @@ const platforms = [
   { key: 'psnId', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
   { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
   { key: 'nintendoId', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
-  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
+  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' },
+  { key: 'twitchUsername', label: 'Twitch', icon: '📺', placeholder: 'Nom Twitch (pour stream)' }
 ];
 
 export default function Register() {
@@ -20,7 +21,8 @@ export default function Register() {
     psnId: '',
     eaId: '',
     nintendoId: '',
-    steamName: ''
+    steamName: '',
+    twitchUsername: ''
   });
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await register(username, email, password, gamertags);
+      await register(username, email, password, { ...gamertags, streamingConsent: consent });
       toast.success('Compte créé! Tu as reçu 1000 coins de départ.');
       navigate('/live');
     } catch (error) {

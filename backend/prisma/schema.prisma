@@ -23,6 +23,10 @@ model User {
   eaId           String?   // EA App (pour Madden, NHL, FIFA)
   nintendoId     String?   // Nintendo Switch Online
   steamName      String?   // Steam (PC)
+  twitchUsername String?   // Nom d'utilisateur Twitch
+
+  // Consentement streaming
+  streamingConsent Boolean @default(false) // Autorise les autres à voir ses streams
 
   // Statut de vérification des plateformes
   xboxVerified   Boolean   @default(false)

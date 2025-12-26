@@ -7,14 +7,14 @@ const router = Router();
 // Inscription
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, xboxGamertag, psnId, eaId, nintendoId, steamName } = req.body;
+    const { username, email, password, xboxGamertag, psnId, eaId, nintendoId, steamName, twitchUsername, streamingConsent } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Tous les champs sont requis' });
     }
 
     // Vérifier qu'au moins un gamertag est fourni
-    if (!xboxGamertag && !psnId && !eaId && !nintendoId && !steamName) {
+    if (!xboxGamertag && !psnId && !eaId && !nintendoId && !steamName && !twitchUsername) {
       return res.status(400).json({ error: 'Au moins un gamertag est requis' });
     }
 
@@ -42,7 +42,9 @@ router.post('/register', async (req, res) => {
         psnId: psnId || null,
         eaId: eaId || null,
         nintendoId: nintendoId || null,
-        steamName: steamName || null
+        steamName: steamName || null,
+        twitchUsername: twitchUsername || null,
+        streamingConsent: streamingConsent || false
       },
       select: {
         id: true,
@@ -56,6 +58,8 @@ router.post('/register', async (req, res) => {
         eaId: true,
         nintendoId: true,
         steamName: true,
+        twitchUsername: true,
+        streamingConsent: true,
         createdAt: true
       }
     });
