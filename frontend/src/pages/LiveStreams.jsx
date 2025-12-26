@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function LiveStreams() {
+  const { user } = useAuth();
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -16,13 +18,11 @@ export default function LiveStreams() {
     player2Name: ''
   });
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-
   useEffect(() => {
-    if (user.id) {
+    if (user?.id) {
       fetchUserProfile();
     }
-  }, [user.id]);
+  }, [user?.id]);
 
   const fetchUserProfile = async () => {
     try {
@@ -75,7 +75,7 @@ export default function LiveStreams() {
           ...newStream,
           title,
           streamUrl,
-          userId: user.id
+          userId: user?.id
         })
       });
 
@@ -146,7 +146,7 @@ export default function LiveStreams() {
             <Link to="/" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg">
               ← Accueil
             </Link>
-            {user.id && (
+            {user?.id && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-bold"
@@ -166,7 +166,7 @@ export default function LiveStreams() {
             <p className="text-gray-400 mb-6">
               Sois le premier à annoncer un match!
             </p>
-            {user.id ? (
+            {user?.id ? (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="bg-green-600 hover:bg-green-500 px-8 py-4 rounded-lg font-bold text-xl"
