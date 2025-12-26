@@ -89,9 +89,14 @@ export default function LiveStreams() {
           player2Name: ''
         });
         fetchStreams();
+        alert('Match annoncé! Tu peux maintenant le démarrer.');
+      } else {
+        const error = await response.json();
+        alert('Erreur: ' + (error.error || 'Impossible de créer le match'));
       }
     } catch (error) {
       console.error('Erreur création stream:', error);
+      alert('Erreur réseau. Vérifie ta connexion.');
     }
   };
 
@@ -151,6 +156,33 @@ export default function LiveStreams() {
             )}
           </div>
         </div>
+
+        {/* Aucun stream */}
+        {streams.filter(s => s.status === 'WAITING').length === 0 &&
+         streams.filter(s => s.status === 'LIVE' || s.status === 'INTERMISSION').length === 0 && (
+          <div className="bg-gray-800 rounded-xl p-12 text-center mb-8">
+            <div className="text-6xl mb-4">🎮</div>
+            <h2 className="text-2xl font-bold mb-2">Aucun match en cours</h2>
+            <p className="text-gray-400 mb-6">
+              Sois le premier à annoncer un match!
+            </p>
+            {user.id ? (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-green-600 hover:bg-green-500 px-8 py-4 rounded-lg font-bold text-xl"
+              >
+                🎮 Annoncer mon match
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="inline-block bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-lg font-bold text-xl"
+              >
+                Se connecter pour annoncer un match
+              </Link>
+            )}
+          </div>
+        )}
 
         {/* Streams actifs */}
         {streams.filter(s => s.status === 'LIVE' || s.status === 'INTERMISSION').length > 0 && (
