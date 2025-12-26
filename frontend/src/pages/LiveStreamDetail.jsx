@@ -216,6 +216,33 @@ export default function LiveStreamDetail() {
     }
   };
 
+  // Extraire le nom du channel Twitch depuis l'URL
+  const getTwitchChannel = (url) => {
+    if (!url) return null;
+    // Formats supportés: twitch.tv/channel, www.twitch.tv/channel, https://twitch.tv/channel
+    const match = url.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
+    return match ? match[1] : null;
+  };
+
+  // Extraire l'ID de vidéo YouTube depuis l'URL
+  const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    // Formats: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/live/ID
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
+      /youtu\.be\/([a-zA-Z0-9_-]+)/,
+      /youtube\.com\/live\/([a-zA-Z0-9_-]+)/
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
+  const twitchChannel = getTwitchChannel(stream?.streamUrl);
+  const youtubeVideoId = getYouTubeVideoId(stream?.streamUrl);
+
   if (loading || !stream) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
@@ -263,6 +290,36 @@ export default function LiveStreamDetail() {
                   <div className="text-7xl font-mono text-green-400 font-bold">{stream.currentScore2}</div>
                 </div>
               </div>
+
+              {/* Lecteur Stream Twitch/YouTube */}
+              {(twitchChannel || youtubeVideoId) && (
+                <div className="mt-4">
+                  <div className="aspect-video rounded-lg overflow-hidden bg-black">
+                    {twitchChannel && (
+                      <iframe
+                        src={`https://player.twitch.tv/?channel=${twitchChannel}&parent=${window.location.hostname}&muted=false`}
+                        height="100%"
+                        width="100%"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
+                    )}
+                    {youtubeVideoId && !twitchChannel && (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1`}
+                        height="100%"
+                        width="100%"
+                        allowFullScreen
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        className="w-full h-full"
+                      />
+                    )}
+                  </div>
+                  <p className="text-center text-xs text-gray-500 mt-2">
+                    📺 Stream en direct {twitchChannel ? `sur Twitch (@${twitchChannel})` : 'sur YouTube'}
+                  </p>
+                </div>
+              )}
 
               {/* Stats */}
               {(stream.shots1 > 0 || stream.shots2 > 0) && (
