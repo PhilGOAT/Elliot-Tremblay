@@ -22,6 +22,7 @@ export default function Register() {
     nintendoId: '',
     steamName: ''
   });
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -41,12 +42,17 @@ export default function Register() {
       return;
     }
 
+    if (!consent) {
+      toast.error('Tu dois accepter les conditions pour continuer');
+      return;
+    }
+
     setLoading(true);
 
     try {
       await register(username, email, password, gamertags);
       toast.success('Compte créé! Tu as reçu 1000 coins de départ.');
-      navigate('/matches');
+      navigate('/live');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur lors de l\'inscription');
     } finally {
@@ -129,10 +135,31 @@ export default function Register() {
             )}
           </div>
 
+          {/* Consentement streaming */}
+          <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-4 border border-purple-600/30">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-700 text-xbox-green focus:ring-xbox-green"
+              />
+              <div>
+                <span className="text-sm text-gray-200">
+                  📺 J'accepte que mes parties puissent être diffusées en direct sur Twitch/YouTube
+                </span>
+                <p className="text-xs text-gray-400 mt-1">
+                  En cochant cette case, tu autorises tes amis à regarder et parier sur tes matchs en direct.
+                  Tu peux te désinscrire à tout moment dans ton profil.
+                </p>
+              </div>
+            </label>
+          </div>
+
           <button
             type="submit"
             className="btn-primary w-full"
-            disabled={loading || !hasAtLeastOneGamertag}
+            disabled={loading || !hasAtLeastOneGamertag || !consent}
           >
             {loading ? 'Création...' : 'Créer mon compte'}
           </button>
