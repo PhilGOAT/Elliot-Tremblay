@@ -227,3 +227,112 @@ enum TournamentStatus {
   COMPLETED
   CANCELLED
 }
+
+// ==========================================
+// LIVE STREAMING & REAL-TIME BETTING MODELS
+// ==========================================
+
+model LiveStream {
+  id           String       @id @default(uuid())
+  title        String       // "Alex vs Lordie - NHL 24"
+  game         GameType
+  streamUrl    String       // URL Twitch/YouTube
+  streamerId   String       // User qui stream
+  player1Name  String       // Nom équipe/joueur 1
+  player2Name  String       // Nom équipe/joueur 2
+  status       StreamStatus @default(WAITING)
+
+  // État du match en temps réel
+  currentScore1    Int      @default(0)
+  currentScore2    Int      @default(0)
+  currentPeriod    Int      @default(1)
+  currentTime      String   @default("20:00") // Temps restant dans la période
+
+  // Statistiques entre-périodes
+  shots1           Int      @default(0)
+  shots2           Int      @default(0)
+  hits1            Int      @default(0)
+  hits2            Int      @default(0)
+  faceoffsWon1     Int      @default(0)
+  faceoffsWon2     Int      @default(0)
+  penaltyMinutes1  Int      @default(0)
+  penaltyMinutes2  Int      @default(0)
+  timeOnAttack1    String?  // "05:32"
+  timeOnAttack2    String?
+
+  // Métadonnées
+  viewerCount      Int      @default(0)
+  startedAt        DateTime?
+  endedAt          DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  events       LiveEvent[]
+  liveBets     LiveBet[]
+}
+
+model LiveEvent {
+  id           String        @id @default(uuid())
+  streamId     String
+  stream       LiveStream    @relation(fields: [streamId], references: [id])
+  eventType    LiveEventType
+  period       Int
+  gameTime     String        // "14:32"
+  description  String        // "But de Ovechkin (assist: Crosby)"
+  player1Score Int?          // Score après l'événement
+  player2Score Int?
+  detectedAt   DateTime      @default(now())
+}
+
+model LiveBet {
+  id           String        @id @default(uuid())
+  userId       String
+  streamId     String
+  stream       LiveStream    @relation(fields: [streamId], references: [id])
+  betType      LiveBetType
+  prediction   String        // "player1", "player2", "over", "under", valeur numérique, etc.
+  odds         Float         // Cote au moment du pari
+  amount       Int
+  status       BetStatus     @default(PENDING)
+  payout       Int?
+  placedAt     DateTime      @default(now())
+  settledAt    DateTime?
+
+  // Détails spécifiques selon le type de pari
+  spreadValue  Float?        // Pour spread bets (+1.5, -1.5)
+  totalValue   Float?        // Pour over/under (5.5 buts)
+  periodNumber Int?          // Pour paris sur une période spécifique
+}
+
+enum StreamStatus {
+  WAITING      // En attente de début
+  LIVE         // En cours
+  INTERMISSION // Entre-périodes
+  ENDED        // Terminé
+  CANCELLED    // Annulé
+}
+
+enum LiveEventType {
+  GOAL             // But marqué
+  PENALTY          // Pénalité
+  PERIOD_START     // Début de période
+  PERIOD_END       // Fin de période
+  POWERPLAY_START  // Avantage numérique début
+  POWERPLAY_END    // Avantage numérique fin
+  GAME_START       // Début du match
+  GAME_END         // Fin du match
+  OVERTIME_START   // Début prolongation
+  SHOOTOUT_START   // Début tirs de barrage
+}
+
+enum LiveBetType {
+  MATCH_WINNER      // Gagnant du match
+  SPREAD            // Spread (+1.5, -1.5)
+  TOTAL_GOALS       // Over/Under buts total
+  PERIOD_WINNER     // Gagnant d'une période
+  NEXT_GOAL         // Prochain but
+  FIRST_GOAL        // Premier but du match
+  EXACT_SCORE       // Score exact final
+  TEAM_TOTAL        // Total buts d'une équipe
+}

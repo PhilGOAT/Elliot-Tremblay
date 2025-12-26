@@ -40,6 +40,9 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center space-x-6">
+            <Link to="/live" className="text-red-400 hover:text-red-300 transition font-bold">
+              🔴 Live
+            </Link>
             <Link to="/matches" className="text-gray-300 hover:text-white transition">
               Matchs
             </Link>
