@@ -7,6 +7,7 @@ export default function LiveStreams() {
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
   const [newStream, setNewStream] = useState({
     title: '',
     game: 'NHL',
@@ -16,6 +17,29 @@ export default function LiveStreams() {
   });
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  useEffect(() => {
+    if (user.id) {
+      fetchUserProfile();
+    }
+  }, [user.id]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setUserProfile(data);
+      // Pré-remplir avec le gamertag Xbox si disponible
+      if (data.xboxGamertag) {
+        setNewStream(prev => ({ ...prev, player1Name: data.xboxGamertag }));
+      }
+    } catch (error) {
+      console.error('Erreur profil:', error);
+    }
+  };
 
   useEffect(() => {
     fetchStreams();
@@ -39,15 +63,31 @@ export default function LiveStreams() {
   const createStream = async (e) => {
     e.preventDefault();
     try {
+      // Générer le titre automatiquement si vide
+      const title = newStream.title || `${newStream.player1Name} vs ${newStream.player2Name}`;
+      // URL stream optionnel
+      const streamUrl = newStream.streamUrl || 'https://twitch.tv';
+
       const response = await fetch(`${API_URL}/api/live-streams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newStream, userId: user.id })
+        body: JSON.stringify({
+          ...newStream,
+          title,
+          streamUrl,
+          userId: user.id
+        })
       });
 
       if (response.ok) {
         setShowCreateModal(false);
-        setNewStream({ title: '', game: 'NHL', streamUrl: '', player1Name: '', player2Name: '' });
+        setNewStream({
+          title: '',
+          game: 'NHL',
+          streamUrl: '',
+          player1Name: userProfile?.xboxGamertag || '',
+          player2Name: ''
+        });
         fetchStreams();
       }
     } catch (error) {
@@ -94,19 +134,21 @@ export default function LiveStreams() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold">📺 Streams en Direct</h1>
-            <p className="text-gray-400">Regarde et parie sur les matchs en temps réel</p>
+            <h1 className="text-3xl font-bold">🎮 Matchs en Direct</h1>
+            <p className="text-gray-400">Parie sur les matchs de tes amis en temps réel</p>
           </div>
           <div className="flex gap-4">
             <Link to="/" className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg">
-              ← Retour
+              ← Accueil
             </Link>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-bold"
-            >
-              + Créer un Stream
-            </button>
+            {user.id && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg font-bold"
+              >
+                + Annoncer un match
+              </button>
+            )}
           </div>
         </div>
 
@@ -195,21 +237,12 @@ export default function LiveStreams() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md">
-              <h2 className="text-2xl font-bold mb-4">Créer un Stream</h2>
+              <h2 className="text-2xl font-bold mb-2">🎮 Annoncer un match</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                Tes amis pourront parier sur ton match en direct!
+              </p>
 
               <form onSubmit={createStream} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Titre du stream</label>
-                  <input
-                    type="text"
-                    value={newStream.title}
-                    onChange={(e) => setNewStream({ ...newStream, title: e.target.value })}
-                    className="w-full bg-gray-700 rounded-lg p-3"
-                    placeholder="Alex vs Lordie - NHL 24"
-                    required
-                  />
-                </div>
-
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Jeu</label>
                   <select
@@ -226,41 +259,64 @@ export default function LiveStreams() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">URL du stream (Twitch/YouTube)</label>
-                  <input
-                    type="url"
-                    value={newStream.streamUrl}
-                    onChange={(e) => setNewStream({ ...newStream, streamUrl: e.target.value })}
-                    className="w-full bg-gray-700 rounded-lg p-3"
-                    placeholder="https://twitch.tv/..."
-                    required
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Équipe/Joueur 1</label>
+                    <label className="block text-sm text-gray-400 mb-1">
+                      Ton gamertag
+                      {userProfile?.xboxGamertag && (
+                        <span className="text-green-400 ml-1">✓</span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       value={newStream.player1Name}
                       onChange={(e) => setNewStream({ ...newStream, player1Name: e.target.value })}
                       className="w-full bg-gray-700 rounded-lg p-3"
-                      placeholder="Canadiens"
+                      placeholder="Ton gamertag Xbox"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Équipe/Joueur 2</label>
+                    <label className="block text-sm text-gray-400 mb-1">Adversaire</label>
                     <input
                       type="text"
                       value={newStream.player2Name}
                       onChange={(e) => setNewStream({ ...newStream, player2Name: e.target.value })}
                       className="w-full bg-gray-700 rounded-lg p-3"
-                      placeholder="Maple Leafs"
+                      placeholder="Gamertag adversaire"
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Titre du match</label>
+                  <input
+                    type="text"
+                    value={newStream.title}
+                    onChange={(e) => setNewStream({ ...newStream, title: e.target.value })}
+                    className="w-full bg-gray-700 rounded-lg p-3"
+                    placeholder={`${newStream.player1Name || 'Moi'} vs ${newStream.player2Name || 'Adversaire'}`}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Laisse vide pour générer automatiquement
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">
+                    URL du stream (optionnel)
+                  </label>
+                  <input
+                    type="url"
+                    value={newStream.streamUrl}
+                    onChange={(e) => setNewStream({ ...newStream, streamUrl: e.target.value })}
+                    className="w-full bg-gray-700 rounded-lg p-3"
+                    placeholder="https://twitch.tv/ton-channel"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Si tu stream, ajoute le lien pour que les gens puissent regarder
+                  </p>
                 </div>
 
                 <div className="flex gap-4 mt-6">
@@ -275,7 +331,7 @@ export default function LiveStreams() {
                     type="submit"
                     className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold"
                   >
-                    Créer
+                    🎮 Annoncer le match
                   </button>
                 </div>
               </form>

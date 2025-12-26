@@ -43,9 +43,6 @@ export default function Navbar() {
             <Link to="/live" className="text-red-400 hover:text-red-300 transition font-bold">
               🔴 Live
             </Link>
-            <Link to="/matches" className="text-gray-300 hover:text-white transition">
-              Matchs
-            </Link>
             <Link to="/tournaments" className="text-gray-300 hover:text-white transition">
               Tournois
             </Link>
@@ -54,9 +51,6 @@ export default function Navbar() {
             </Link>
             {user && (
               <>
-                <Link to="/matches/create" className="text-gray-300 hover:text-white transition">
-                  Créer un match
-                </Link>
                 <Link to="/my-bets" className="text-gray-300 hover:text-white transition">
                   Mes Paris
                 </Link>
