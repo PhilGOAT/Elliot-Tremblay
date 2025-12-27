@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
+import ScoreOCR from '../components/ScoreOCR';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -422,6 +423,32 @@ export default function LiveStreamDetail() {
                     >
                       Mettre à jour manuellement
                     </button>
+
+                    {/* OCR Score Detection */}
+                    <div className="mt-4 pt-4 border-t border-gray-600">
+                      <ScoreOCR
+                        player1Name={stream.player1Name}
+                        player2Name={stream.player2Name}
+                        onScoreDetected={(scores) => {
+                          setManualScore({
+                            ...manualScore,
+                            score1: scores.score1,
+                            score2: scores.score2
+                          });
+                          // Mettre à jour automatiquement
+                          fetch(`${API_URL}/api/live-streams/${id}/manual-update`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              score1: scores.score1,
+                              score2: scores.score2,
+                              period: manualScore.period,
+                              time: manualScore.time
+                            })
+                          }).then(() => fetchStream());
+                        }}
+                      />
+                    </div>
                   </>
                 )}
               </div>
