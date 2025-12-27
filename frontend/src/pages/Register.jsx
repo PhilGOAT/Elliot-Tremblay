@@ -8,8 +8,7 @@ const platforms = [
   { key: 'psnId', label: 'PlayStation', icon: '🎯', placeholder: 'PSN ID' },
   { key: 'eaId', label: 'EA Sports', icon: '⚽', placeholder: 'EA ID (Madden, NHL, FIFA)' },
   { key: 'nintendoId', label: 'Nintendo', icon: '🍄', placeholder: 'Nintendo ID' },
-  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' },
-  { key: 'twitchUsername', label: 'Twitch', icon: '📺', placeholder: 'Nom Twitch (pour stream)' }
+  { key: 'steamName', label: 'Steam', icon: '💻', placeholder: 'Nom Steam' }
 ];
 
 export default function Register() {
@@ -21,9 +20,9 @@ export default function Register() {
     psnId: '',
     eaId: '',
     nintendoId: '',
-    steamName: '',
-    twitchUsername: ''
+    steamName: ''
   });
+  const [twitchUsername, setTwitchUsername] = useState('');
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -49,11 +48,17 @@ export default function Register() {
       return;
     }
 
+    if (!twitchUsername.trim()) {
+      toast.error('Entre ton pseudo Twitch pour le streaming!');
+      return;
+    }
+
     setLoading(true);
 
     try {
       await register(username, email, password, {
         ...gamertags,
+        twitchUsername: twitchUsername.trim(),
         streamingConsent: consent,
         streamVisibility: 'private' // Toujours privé - seul l'admin voit
       });
@@ -141,8 +146,30 @@ export default function Register() {
             )}
           </div>
 
-          {/* Consentement streaming automatique */}
+          {/* Section Twitch obligatoire */}
           <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-4 border border-purple-600/30">
+            <h3 className="font-bold mb-3 flex items-center gap-2 text-purple-400">
+              📺 Ton compte Twitch
+              <span className="text-xs text-red-400 font-normal">(obligatoire)</span>
+            </h3>
+
+            <div className="mb-4">
+              <label className="block text-sm text-gray-300 mb-2">
+                Pseudo Twitch
+              </label>
+              <input
+                type="text"
+                value={twitchUsername}
+                onChange={(e) => setTwitchUsername(e.target.value)}
+                className="input w-full border-purple-600/50"
+                placeholder="ton_pseudo_twitch"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Ton stream sera visible sur twitch.tv/{twitchUsername || '...'}
+              </p>
+            </div>
+
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -152,10 +179,10 @@ export default function Register() {
               />
               <div>
                 <span className="text-sm text-gray-200 font-medium">
-                  📺 Activer le streaming automatique quand je joue
+                  J'accepte que mon stream soit utilisé pour les paris
                 </span>
                 <p className="text-xs text-gray-400 mt-1">
-                  À chaque fois que tu joues sur Xbox, ton Twitch sera connecté automatiquement pour les paris.
+                  Quand tu joues sur Xbox, ton Twitch sera détecté automatiquement pour lire les scores.
                 </p>
               </div>
             </label>
@@ -164,20 +191,13 @@ export default function Register() {
               <div className="mt-3 pt-3 border-t border-purple-600/20 space-y-3">
                 <div className="bg-green-900/30 border border-green-600/30 rounded-lg p-3">
                   <p className="text-sm text-green-400 font-medium">
-                    ✅ Configuration une seule fois:
+                    ✅ Configuration une seule fois sur ta Xbox:
                   </p>
                   <ol className="text-xs text-gray-300 mt-2 space-y-1 list-decimal list-inside">
-                    <li>Lie ton compte Twitch à ta Xbox (une seule fois)</li>
-                    <li>Active "Diffusion auto" dans les paramètres Xbox</li>
-                    <li>C'est tout! Ton stream démarre automatiquement quand tu joues</li>
+                    <li>Paramètres → Compte → Comptes liés → Twitch</li>
+                    <li>Paramètres → Préférences → Diffusion auto → Activé</li>
+                    <li>C'est tout! Le stream démarre quand tu joues</li>
                   </ol>
-                </div>
-
-                <div className="text-xs text-gray-400">
-                  <p className="mb-1"><strong className="text-purple-400">Comment activer la diffusion auto:</strong></p>
-                  <p className="text-gray-500">
-                    Xbox: Paramètres → Préférences → Diffusion et capture → "Diffuser automatiquement avec Twitch" → Activé
-                  </p>
                 </div>
 
                 <p className="text-xs text-gray-500">
@@ -190,7 +210,7 @@ export default function Register() {
           <button
             type="submit"
             className="btn-primary w-full"
-            disabled={loading || !hasAtLeastOneGamertag || !consent}
+            disabled={loading || !hasAtLeastOneGamertag || !consent || !twitchUsername.trim()}
           >
             {loading ? 'Création...' : 'Créer mon compte'}
           </button>
