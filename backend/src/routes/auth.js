@@ -13,20 +13,48 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Tous les champs sont requis' });
     }
 
+    // Normaliser l'email (minuscules, sans espaces)
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedUsername = username.trim();
+
     // Vérifier qu'au moins un gamertag est fourni
     if (!xboxGamertag && !psnId && !eaId && !nintendoId && !steamName && !twitchUsername) {
       return res.status(400).json({ error: 'Au moins un gamertag est requis' });
     }
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await req.prisma.user.findFirst({
+    // Vérifier si l'email existe déjà (insensible à la casse)
+    const existingEmail = await req.prisma.user.findFirst({
       where: {
-        OR: [{ email }, { username }]
+        email: { equals: normalizedEmail, mode: 'insensitive' }
       }
     });
 
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email ou nom d\'utilisateur déjà utilisé' });
+    if (existingEmail) {
+      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    }
+
+    // Vérifier si le username existe déjà (insensible à la casse)
+    const existingUsername = await req.prisma.user.findFirst({
+      where: {
+        username: { equals: normalizedUsername, mode: 'insensitive' }
+      }
+    });
+
+    if (existingUsername) {
+      return res.status(400).json({ error: 'Ce nom d\'utilisateur est déjà pris' });
+    }
+
+    // Vérifier si le pseudo Twitch est déjà utilisé
+    if (twitchUsername) {
+      const existingTwitch = await req.prisma.user.findFirst({
+        where: {
+          twitchUsername: { equals: twitchUsername.trim(), mode: 'insensitive' }
+        }
+      });
+
+      if (existingTwitch) {
+        return res.status(400).json({ error: 'Ce pseudo Twitch est déjà utilisé par un autre compte' });
+      }
     }
 
     // Hasher le mot de passe
@@ -35,8 +63,8 @@ router.post('/register', async (req, res) => {
     // Créer l'utilisateur
     const user = await req.prisma.user.create({
       data: {
-        username,
-        email,
+        username: normalizedUsername,
+        email: normalizedEmail,
         password: hashedPassword,
         xboxGamertag: xboxGamertag || null,
         psnId: psnId || null,
