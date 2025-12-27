@@ -59,17 +59,32 @@ router.get('/me', authenticate, async (req, res) => {
 // Mettre à jour le profil
 router.patch('/me', authenticate, async (req, res) => {
   try {
-    const { xboxGamertag, psnId, eaId, nintendoId, steamName } = req.body;
+    const { username, xboxGamertag, psnId, eaId, nintendoId, steamName } = req.body;
+
+    // Préparer les données à mettre à jour
+    const updateData = {};
+
+    // Permettre le changement de pseudo
+    if (username !== undefined) {
+      const trimmedUsername = username.trim();
+      if (trimmedUsername.length < 3) {
+        return res.status(400).json({ error: 'Le pseudo doit avoir au moins 3 caractères' });
+      }
+      if (trimmedUsername.length > 20) {
+        return res.status(400).json({ error: 'Le pseudo ne peut pas dépasser 20 caractères' });
+      }
+      updateData.username = trimmedUsername;
+    }
+
+    if (xboxGamertag !== undefined) updateData.xboxGamertag = xboxGamertag;
+    if (psnId !== undefined) updateData.psnId = psnId;
+    if (eaId !== undefined) updateData.eaId = eaId;
+    if (nintendoId !== undefined) updateData.nintendoId = nintendoId;
+    if (steamName !== undefined) updateData.steamName = steamName;
 
     const updatedUser = await req.prisma.user.update({
       where: { id: req.userId },
-      data: {
-        xboxGamertag: xboxGamertag !== undefined ? xboxGamertag : undefined,
-        psnId: psnId !== undefined ? psnId : undefined,
-        eaId: eaId !== undefined ? eaId : undefined,
-        nintendoId: nintendoId !== undefined ? nintendoId : undefined,
-        steamName: steamName !== undefined ? steamName : undefined
-      },
+      data: updateData,
       select: {
         id: true,
         username: true,
@@ -187,7 +202,9 @@ router.get('/:id/online', async (req, res) => {
         twitchUsername: true,
         xboxXuid: true,
         xboxVerified: true,
-        xboxAccessToken: true
+        xboxAccessToken: true,
+        xboxRefreshToken: true,
+        xboxTokenExpiry: true
       }
     });
 
@@ -202,8 +219,33 @@ router.get('/:id/online', async (req, res) => {
     // 1. Vérifier la présence Xbox si le compte est lié
     if (user.xboxVerified && user.xboxXuid && user.xboxAccessToken) {
       try {
-        // Trouver un utilisateur avec un token Xbox valide pour faire la requête
-        const xboxData = await xboxService.authenticateWithXboxLive(user.xboxAccessToken);
+        let accessToken = user.xboxAccessToken;
+
+        // Vérifier si le token est expiré et le rafraîchir si possible
+        if (user.xboxTokenExpiry && new Date() > new Date(user.xboxTokenExpiry)) {
+          if (user.xboxRefreshToken) {
+            try {
+              const refreshed = await refreshXboxToken(user.xboxRefreshToken);
+              if (refreshed) {
+                accessToken = refreshed.access_token;
+                // Mettre à jour les tokens dans la base de données
+                await req.prisma.user.update({
+                  where: { id: req.params.id },
+                  data: {
+                    xboxAccessToken: refreshed.access_token,
+                    xboxRefreshToken: refreshed.refresh_token || user.xboxRefreshToken,
+                    xboxTokenExpiry: new Date(Date.now() + (refreshed.expires_in * 1000))
+                  }
+                });
+              }
+            } catch (refreshError) {
+              console.error('Erreur refresh token Xbox:', refreshError);
+            }
+          }
+        }
+
+        // Authentifier avec Xbox Live
+        const xboxData = await xboxService.authenticateWithXboxLive(accessToken);
 
         if (xboxData) {
           const presence = await xboxService.getPresence(
@@ -217,7 +259,9 @@ router.get('/:id/online', async (req, res) => {
             xboxPresence = presence.state;
 
             // Trouver le jeu en cours
-            const activeDevice = presence.devices?.find(d => d.type === 'XboxOne' || d.type === 'XboxSeries');
+            const activeDevice = presence.devices?.find(d =>
+              d.type === 'XboxOne' || d.type === 'XboxSeriesX' || d.type === 'XboxSeriesS' || d.type === 'Xbox'
+            );
             if (activeDevice) {
               const activeGame = activeDevice.titles?.find(t => t.placement === 'Full' && t.state === 'Active');
               if (activeGame) {
@@ -254,6 +298,39 @@ router.get('/:id/online', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+// Fonction pour rafraîchir le token Xbox/Microsoft
+async function refreshXboxToken(refreshToken) {
+  const clientId = process.env.XBOX_CLIENT_ID;
+  const clientSecret = process.env.XBOX_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  try {
+    const response = await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token'
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Refresh token failed:', await response.text());
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    return null;
+  }
+}
 
 // Fonction pour vérifier si un stream Twitch est en ligne
 async function checkTwitchLive(username) {

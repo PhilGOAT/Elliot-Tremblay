@@ -17,17 +17,20 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [xboxConnecting, setXboxConnecting] = useState(false);
   const [formData, setFormData] = useState({
+    username: '',
     xboxGamertag: '',
     psnId: '',
     eaId: '',
     nintendoId: '',
     steamName: ''
   });
+  const [editingUsername, setEditingUsername] = useState(false);
 
   // Mettre à jour le formulaire quand les données user changent
   useEffect(() => {
     if (user) {
       setFormData({
+        username: user.username || '',
         xboxGamertag: user.xboxGamertag || '',
         psnId: user.psnId || '',
         eaId: user.eaId || '',
@@ -122,6 +125,24 @@ export default function Profile() {
     }
   };
 
+  const handleSaveUsername = async () => {
+    if (formData.username.trim().length < 3) {
+      toast.error('Le pseudo doit avoir au moins 3 caractères');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.patch('/users/me', { username: formData.username });
+      toast.success('Pseudo mis à jour!');
+      await refreshUser();
+      setEditingUsername(false);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const hasAnyGamertag = platforms.some(p => user[p.key]);
 
   // Indicateur de statut de vérification
@@ -143,7 +164,45 @@ export default function Profile() {
           </span>
         </div>
 
-        <h1 className="text-2xl font-bold mb-2">{user.username}</h1>
+        {editingUsername ? (
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <input
+              type="text"
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              className="input text-xl font-bold text-center w-48"
+              placeholder="Ton pseudo"
+              maxLength={20}
+            />
+            <button
+              onClick={handleSaveUsername}
+              disabled={saving}
+              className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-sm"
+            >
+              {saving ? '...' : '✓'}
+            </button>
+            <button
+              onClick={() => {
+                setEditingUsername(false);
+                setFormData({ ...formData, username: user.username });
+              }}
+              className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-sm"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <h1 className="text-2xl font-bold">{user.username}</h1>
+            <button
+              onClick={() => setEditingUsername(true)}
+              className="text-gray-400 hover:text-white text-sm"
+              title="Modifier le pseudo"
+            >
+              ✏️
+            </button>
+          </div>
+        )}
         <p className="text-gray-400 mb-6">{user.email}</p>
 
         <div className="grid grid-cols-3 gap-4 mb-6">
