@@ -9,8 +9,8 @@ datasource db {
 
 model User {
   id             String    @id @default(uuid())
-  username       String    @unique
-  email          String    @unique
+  username       String
+  email          String
   password       String
   balance        Int       @default(1000) // Monnaie virtuelle de départ
   wins           Int       @default(0)
