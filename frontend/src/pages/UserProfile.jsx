@@ -12,7 +12,12 @@ export default function UserProfile() {
   const [friendStatus, setFriendStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [isOnline, setIsOnline] = useState(false);
+  const [onlineData, setOnlineData] = useState({
+    isOnline: false,
+    isOnlineXbox: false,
+    isStreamingTwitch: false,
+    currentGame: null
+  });
 
   const getToken = () => localStorage.getItem('token');
 
@@ -32,7 +37,12 @@ export default function UserProfile() {
       const response = await fetch(`${API_URL}/api/users/${id}/online`);
       if (response.ok) {
         const data = await response.json();
-        setIsOnline(data.isOnline);
+        setOnlineData({
+          isOnline: data.isOnline,
+          isOnlineXbox: data.isOnlineXbox,
+          isStreamingTwitch: data.isStreamingTwitch,
+          currentGame: data.currentGame
+        });
       }
     } catch (error) {
       console.error('Erreur check online:', error);
@@ -227,20 +237,28 @@ export default function UserProfile() {
             )}
           </div>
           {/* Point vert si en ligne */}
-          {isOnline && (
+          {onlineData.isOnline && (
             <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-4 border-gray-800 animate-pulse" title="En train de jouer!"></div>
           )}
         </div>
 
         <h1 className="text-2xl font-bold mb-2">{profile.username}</h1>
 
-        {/* Badge "En jeu" si en ligne */}
-        {isOnline && (
-          <div className="mb-4">
-            <span className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-full font-medium animate-pulse">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              🎮 En train de jouer sur Xbox!
-            </span>
+        {/* Badges "En jeu" si en ligne */}
+        {(onlineData.isOnlineXbox || onlineData.isStreamingTwitch) && (
+          <div className="mb-4 flex flex-wrap justify-center gap-2">
+            {onlineData.isOnlineXbox && (
+              <span className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-full font-medium animate-pulse">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                🎮 {onlineData.currentGame || 'En ligne sur Xbox'}
+              </span>
+            )}
+            {onlineData.isStreamingTwitch && (
+              <span className="inline-flex items-center gap-2 bg-purple-500/20 text-purple-400 px-4 py-2 rounded-full font-medium animate-pulse">
+                <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                📺 En stream sur Twitch
+              </span>
+            )}
           </div>
         )}
 

@@ -14,7 +14,7 @@ export default function Friends() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('friends'); // friends, requests, search
-  const [onlineStatus, setOnlineStatus] = useState({}); // {friendId: true/false}
+  const [onlineStatus, setOnlineStatus] = useState({}); // {friendId: {isOnline, currentGame, isOnlineXbox, isStreamingTwitch}}
 
   useEffect(() => {
     if (user) {
@@ -41,7 +41,13 @@ export default function Friends() {
         const response = await fetch(`${API_URL}/api/users/${friend.id}/online`);
         if (response.ok) {
           const data = await response.json();
-          statuses[friend.id] = data.isOnline;
+          statuses[friend.id] = {
+            isOnline: data.isOnline,
+            isOnlineXbox: data.isOnlineXbox,
+            isStreamingTwitch: data.isStreamingTwitch,
+            currentGame: data.currentGame,
+            xboxPresence: data.xboxPresence
+          };
         }
       } catch (error) {
         console.error('Erreur check online:', error);
@@ -270,11 +276,18 @@ export default function Friends() {
             </div>
           ) : (
             <div className="grid gap-4">
-              {friends.map((friend) => (
+              {friends.map((friend) => {
+                const status = onlineStatus[friend.id];
+                const isOnline = status?.isOnline;
+                const currentGame = status?.currentGame;
+                const isOnlineXbox = status?.isOnlineXbox;
+                const isStreamingTwitch = status?.isStreamingTwitch;
+
+                return (
                 <div
                   key={friend.id}
                   className={`bg-gray-800 rounded-xl p-4 flex items-center justify-between ${
-                    onlineStatus[friend.id] ? 'border-l-4 border-green-500' : ''
+                    isOnline ? 'border-l-4 border-green-500' : ''
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -287,16 +300,21 @@ export default function Friends() {
                         )}
                       </div>
                       {/* Point vert si en ligne */}
-                      {onlineStatus[friend.id] && (
+                      {isOnline && (
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse" title="En train de jouer!"></div>
                       )}
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-lg">{friend.username}</h3>
-                        {onlineStatus[friend.id] && (
+                        {isOnlineXbox && (
                           <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-                            🎮 En jeu
+                            🎮 {currentGame || 'En ligne Xbox'}
+                          </span>
+                        )}
+                        {isStreamingTwitch && (
+                          <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                            📺 En stream
                           </span>
                         )}
                       </div>
@@ -333,7 +351,8 @@ export default function Friends() {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>

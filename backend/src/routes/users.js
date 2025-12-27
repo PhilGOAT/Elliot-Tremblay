@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { verifyTwitchUsername } from '../services/verification.js';
+import xboxService from '../services/xboxLive.js';
 
 const router = Router();
 
@@ -177,37 +178,77 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
-// Vérifier si un utilisateur est en ligne (joue à la Xbox = stream Twitch actif)
+// Vérifier si un utilisateur est en ligne (Xbox OU stream Twitch actif)
 router.get('/:id/online', async (req, res) => {
   try {
     const user = await req.prisma.user.findUnique({
       where: { id: req.params.id },
-      select: { twitchUsername: true }
+      select: {
+        twitchUsername: true,
+        xboxXuid: true,
+        xboxVerified: true,
+        xboxAccessToken: true
+      }
     });
 
     if (!user) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
 
-    if (!user.twitchUsername) {
-      return res.json({ isOnline: false, reason: 'no_twitch' });
+    let isOnlineXbox = false;
+    let xboxPresence = null;
+    let currentGame = null;
+
+    // 1. Vérifier la présence Xbox si le compte est lié
+    if (user.xboxVerified && user.xboxXuid && user.xboxAccessToken) {
+      try {
+        // Trouver un utilisateur avec un token Xbox valide pour faire la requête
+        const xboxData = await xboxService.authenticateWithXboxLive(user.xboxAccessToken);
+
+        if (xboxData) {
+          const presence = await xboxService.getPresence(
+            user.xboxXuid,
+            xboxData.xblToken,
+            xboxData.userHash
+          );
+
+          if (presence) {
+            isOnlineXbox = presence.isOnline;
+            xboxPresence = presence.state;
+
+            // Trouver le jeu en cours
+            const activeDevice = presence.devices?.find(d => d.type === 'XboxOne' || d.type === 'XboxSeries');
+            if (activeDevice) {
+              const activeGame = activeDevice.titles?.find(t => t.placement === 'Full' && t.state === 'Active');
+              if (activeGame) {
+                currentGame = activeGame.name;
+              }
+            }
+          }
+        }
+      } catch (xboxError) {
+        console.error('Erreur check Xbox presence:', xboxError);
+      }
     }
 
-    // Vérifier si le stream Twitch est en ligne
-    const twitchStatus = await verifyTwitchUsername(user.twitchUsername);
-
-    // Si on a pu vérifier et que le compte existe, on check s'il stream
-    if (twitchStatus.valid && twitchStatus.exists) {
-      // Pour vraiment savoir si quelqu'un stream, on doit utiliser l'API Twitch streams
-      const isLive = await checkTwitchLive(user.twitchUsername);
-      return res.json({
-        isOnline: isLive,
-        twitchUsername: user.twitchUsername,
-        checkedAt: new Date().toISOString()
-      });
+    // 2. Vérifier le stream Twitch
+    let isStreamingTwitch = false;
+    if (user.twitchUsername) {
+      isStreamingTwitch = await checkTwitchLive(user.twitchUsername);
     }
 
-    res.json({ isOnline: false, reason: 'twitch_not_verified' });
+    // L'utilisateur est "en ligne" s'il est connecté Xbox OU s'il stream sur Twitch
+    const isOnline = isOnlineXbox || isStreamingTwitch;
+
+    res.json({
+      isOnline,
+      isOnlineXbox,
+      isStreamingTwitch,
+      xboxPresence,
+      currentGame,
+      twitchUsername: user.twitchUsername,
+      checkedAt: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Check online error:', error);
     res.status(500).json({ error: 'Erreur serveur' });

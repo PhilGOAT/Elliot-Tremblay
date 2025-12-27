@@ -201,11 +201,82 @@ export async function getRecentActivity(xuid, xstsToken, userHash) {
   }
 }
 
+/**
+ * Obtient le statut de présence d'un joueur (en ligne, hors ligne, en jeu)
+ */
+export async function getPresence(xuid, xstsToken, userHash) {
+  try {
+    const response = await axios.get(
+      `https://userpresence.xboxlive.com/users/xuid(${xuid})`,
+      {
+        headers: {
+          'Authorization': `XBL3.0 x=${userHash};${xstsToken}`,
+          'x-xbl-contract-version': '3'
+        }
+      }
+    );
+
+    const data = response.data;
+
+    return {
+      isOnline: data.state === 'Online',
+      state: data.state, // Online, Offline, Away
+      lastSeen: data.lastSeen?.dateTime,
+      devices: data.devices?.map(device => ({
+        type: device.type, // XboxOne, WindowsOneCore, etc.
+        titles: device.titles?.map(title => ({
+          id: title.id,
+          name: title.name,
+          placement: title.placement, // Full, Background, etc.
+          state: title.state // Active, Inactive
+        }))
+      })) || []
+    };
+  } catch (error) {
+    console.error('Xbox presence error:', error.response?.data || error.message);
+    return null;
+  }
+}
+
+/**
+ * Obtient le statut de présence de plusieurs joueurs
+ */
+export async function getBatchPresence(xuids, xstsToken, userHash) {
+  try {
+    const response = await axios.post(
+      'https://userpresence.xboxlive.com/users/batch',
+      {
+        users: xuids.map(xuid => ({ xuid })),
+        level: 'all'
+      },
+      {
+        headers: {
+          'Authorization': `XBL3.0 x=${userHash};${xstsToken}`,
+          'x-xbl-contract-version': '3',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data.map(user => ({
+      xuid: user.xuid,
+      isOnline: user.state === 'Online',
+      state: user.state,
+      currentGame: user.devices?.[0]?.titles?.find(t => t.placement === 'Full')?.name || null
+    }));
+  } catch (error) {
+    console.error('Xbox batch presence error:', error.response?.data || error.message);
+    return [];
+  }
+}
+
 export default {
   getAuthorizationUrl,
   exchangeCodeForToken,
   authenticateWithXboxLive,
   getXboxProfile,
   searchGamertag,
-  getRecentActivity
+  getRecentActivity,
+  getPresence,
+  getBatchPresence
 };
