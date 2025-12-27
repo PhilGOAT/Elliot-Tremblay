@@ -253,11 +253,16 @@ export default function UserProfile() {
                 🎮 {onlineData.currentGame || 'En ligne sur Xbox'}
               </span>
             )}
-            {onlineData.isStreamingTwitch && (
-              <span className="inline-flex items-center gap-2 bg-purple-500/20 text-purple-400 px-4 py-2 rounded-full font-medium animate-pulse">
-                <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-                📺 En stream sur Twitch
-              </span>
+            {onlineData.isStreamingTwitch && profile.twitchUsername && (
+              <a
+                href={`https://twitch.tv/${profile.twitchUsername}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-full font-medium animate-pulse transition"
+              >
+                <span className="w-2 h-2 bg-white rounded-full"></span>
+                📺 Regarder le stream
+              </a>
             )}
           </div>
         )}

@@ -313,9 +313,14 @@ export default function Friends() {
                           </span>
                         )}
                         {isStreamingTwitch && (
-                          <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
-                            📺 En stream
-                          </span>
+                          <a
+                            href={`https://twitch.tv/${friend.twitchUsername}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full hover:bg-purple-500/40 transition"
+                          >
+                            📺 En stream - Regarder
+                          </a>
                         )}
                       </div>
                       <div className="text-sm text-gray-400 space-x-3">
