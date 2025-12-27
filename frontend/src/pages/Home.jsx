@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+// Canal Twitch principal du site
+const SITE_TWITCH_CHANNEL = 'xboxbettingsite';
+
 export default function Home() {
   const { user } = useAuth();
   const [liveStreams, setLiveStreams] = useState([]);
@@ -53,6 +56,42 @@ export default function Home() {
         <p className="text-gray-400">
           Parie sur les matchs en direct de tes amis!
         </p>
+      </div>
+
+      {/* Stream Twitch Principal */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold text-purple-400">
+            📺 Stream en direct
+          </h2>
+          <a
+            href={`https://twitch.tv/${SITE_TWITCH_CHANNEL}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-400 hover:text-purple-300 text-sm"
+          >
+            Voir sur Twitch →
+          </a>
+        </div>
+        <div className="bg-gray-800 rounded-xl overflow-hidden border border-purple-600/30">
+          <div className="aspect-video max-h-[400px]">
+            <iframe
+              src={`https://player.twitch.tv/?channel=${SITE_TWITCH_CHANNEL}&parent=${window.location.hostname}&muted=true`}
+              height="100%"
+              width="100%"
+              allowFullScreen
+              className="w-full h-full"
+            />
+          </div>
+          <div className="p-3 bg-purple-900/20 flex items-center justify-between">
+            <span className="text-purple-400 text-sm font-bold">
+              twitch.tv/{SITE_TWITCH_CHANNEL}
+            </span>
+            <span className="text-gray-400 text-xs">
+              Regarde les matchs en direct et parie!
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Matchs en direct */}
