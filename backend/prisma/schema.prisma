@@ -436,3 +436,40 @@ model OcrPattern {
   @@unique([game, patternType, rawPattern])
   @@index([game, patternType])
 }
+
+// ==========================================
+// ACTIVE STREAM MONITORING (Auto OCR)
+// ==========================================
+
+model ActiveStream {
+  id              String   @id @default(uuid())
+  userId          String   // Utilisateur qui stream
+  twitchChannel   String   // Nom du channel Twitch
+
+  // Score détecté en temps réel par OCR
+  detectedScore1  Int?
+  detectedScore2  Int?
+  detectedPeriod  Int?
+  detectedTime    String?
+  powerPlay       Boolean  @default(false)
+  screenType      String?  // GAMEPLAY, GOAL, INTERMISSION, STATS
+
+  // Confiance et status
+  confidence      Float?   // Confiance de la dernière détection
+  isLive          Boolean  @default(true)
+  lastOcrAt       DateTime? // Dernière analyse OCR
+  ocrError        String?  // Dernière erreur OCR
+
+  // Historique des scores (pour détecter les buts)
+  previousScore1  Int?
+  previousScore2  Int?
+
+  // Métadonnées
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId])
+  @@unique([twitchChannel])
+  @@index([isLive])
+}

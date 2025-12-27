@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { analyzeScreenshot, analyzeFromTwitch, checkStreamLive } from '../services/streamCapture.js';
 import { getLearningStats, recordCorrection, enhanceOcrResults } from '../services/ocrLearning.js';
+import { startOcrWorker, stopOcrWorker, getWorkerStatus, forceScan } from '../services/ocrWorker.js';
 import multer from 'multer';
 
 const router = Router();
@@ -251,6 +252,103 @@ router.get('/ocr/stats', authenticate, requireAdmin, async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('[Admin OCR] Erreur stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// OCR WORKER - Détection automatique en temps réel
+// ============================================
+
+// GET /admin/ocr/worker/status - Statut du worker OCR
+router.get('/ocr/worker/status', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const status = getWorkerStatus();
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/ocr/worker/start - Démarrer le worker OCR
+router.post('/ocr/worker/start', authenticate, requireAdmin, async (req, res) => {
+  try {
+    startOcrWorker();
+    res.json({ success: true, message: 'Worker OCR démarré' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/ocr/worker/stop - Arrêter le worker OCR
+router.post('/ocr/worker/stop', authenticate, requireAdmin, async (req, res) => {
+  try {
+    stopOcrWorker();
+    res.json({ success: true, message: 'Worker OCR arrêté' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/ocr/worker/scan - Forcer un scan immédiat
+router.post('/ocr/worker/scan', authenticate, requireAdmin, async (req, res) => {
+  try {
+    await forceScan();
+    res.json({ success: true, message: 'Scan forcé effectué' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /admin/active-streams - Récupérer tous les streams actifs avec scores OCR
+router.get('/active-streams', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const activeStreams = await req.prisma.activeStream.findMany({
+      where: { isLive: true },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    // Enrichir avec les infos utilisateur
+    const streamsWithUsers = await Promise.all(
+      activeStreams.map(async (stream) => {
+        const user = await req.prisma.user.findUnique({
+          where: { id: stream.userId },
+          select: {
+            id: true,
+            username: true,
+            twitchUsername: true,
+            xboxGamertag: true,
+            xboxAvatar: true
+          }
+        });
+
+        return {
+          ...stream,
+          user,
+          twitchUrl: `https://twitch.tv/${stream.twitchChannel}`
+        };
+      })
+    );
+
+    res.json({
+      count: streamsWithUsers.length,
+      workerStatus: getWorkerStatus(),
+      streams: streamsWithUsers
+    });
+  } catch (error) {
+    console.error('[Admin] Erreur active-streams:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /admin/active-streams/:id - Supprimer un stream actif
+router.delete('/active-streams/:id', authenticate, requireAdmin, async (req, res) => {
+  try {
+    await req.prisma.activeStream.delete({
+      where: { id: req.params.id }
+    });
+    res.json({ success: true });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });

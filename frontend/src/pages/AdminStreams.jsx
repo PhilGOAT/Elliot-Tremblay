@@ -20,17 +20,26 @@ export default function AdminStreams() {
   const [correctedScore, setCorrectedScore] = useState({ score1: '', score2: '' });
   const fileInputRef = useRef(null);
 
+  // États Worker OCR temps réel
+  const [activeStreams, setActiveStreams] = useState([]);
+  const [workerStatus, setWorkerStatus] = useState({ isRunning: false });
+  const [workerLoading, setWorkerLoading] = useState(false);
+
   useEffect(() => {
     if (user?.isAdmin) {
       fetchStreams();
       fetchUsers();
+      fetchActiveStreams();
     }
   }, [user]);
 
-  // Auto-refresh toutes les 30 secondes
+  // Auto-refresh toutes les 10 secondes pour les scores en temps réel
   useEffect(() => {
     if (user?.isAdmin) {
-      const interval = setInterval(fetchStreams, 30000);
+      const interval = setInterval(() => {
+        fetchStreams();
+        fetchActiveStreams();
+      }, 10000);
       return () => clearInterval(interval);
     }
   }, [user]);
@@ -43,6 +52,16 @@ export default function AdminStreams() {
       console.error('Erreur chargement streams:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchActiveStreams = async () => {
+    try {
+      const res = await api.get('/admin/active-streams');
+      setActiveStreams(res.data.streams || []);
+      setWorkerStatus(res.data.workerStatus || { isRunning: false });
+    } catch (error) {
+      console.error('Erreur chargement active streams:', error);
     }
   };
 
@@ -154,6 +173,51 @@ export default function AdminStreams() {
     }
   };
 
+  // Contrôles Worker OCR
+  const startWorker = async () => {
+    setWorkerLoading(true);
+    try {
+      await api.post('/admin/ocr/worker/start');
+      toast.success('Worker OCR démarré');
+      fetchActiveStreams();
+    } catch (error) {
+      toast.error('Erreur démarrage worker');
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
+  const stopWorker = async () => {
+    setWorkerLoading(true);
+    try {
+      await api.post('/admin/ocr/worker/stop');
+      toast.success('Worker OCR arrêté');
+      fetchActiveStreams();
+    } catch (error) {
+      toast.error('Erreur arrêt worker');
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
+  const forceScan = async () => {
+    setWorkerLoading(true);
+    try {
+      await api.post('/admin/ocr/worker/scan');
+      toast.success('Scan forcé effectué');
+      fetchActiveStreams();
+    } catch (error) {
+      toast.error('Erreur scan');
+    } finally {
+      setWorkerLoading(false);
+    }
+  };
+
+  // Trouver le score OCR pour un stream
+  const getOcrScoreForStream = (twitchUsername) => {
+    return activeStreams.find(s => s.twitchChannel === twitchUsername);
+  };
+
   const toggleAdmin = async (userId, currentStatus) => {
     try {
       await api.patch(`/admin/users/${userId}`, {
@@ -187,9 +251,18 @@ export default function AdminStreams() {
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">🛡️ Admin</h1>
-        <span className="text-sm text-gray-400">
-          Refresh automatique toutes les 30s
-        </span>
+        <div className="flex items-center gap-3">
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            workerStatus.isRunning
+              ? 'bg-green-500/20 text-green-400'
+              : 'bg-gray-700 text-gray-500'
+          }`}>
+            OCR: {workerStatus.isRunning ? 'Actif' : 'Inactif'}
+          </span>
+          <span className="text-sm text-gray-400">
+            Refresh automatique toutes les 10s
+          </span>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -231,7 +304,53 @@ export default function AdminStreams() {
 
       {/* Tab: Streams */}
       {activeTab === 'streams' && (
-        <div>
+        <div className="space-y-6">
+          {/* Panneau de contrôle Worker OCR */}
+          <div className="bg-gray-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h3 className="font-bold text-lg">🤖 Détection automatique des scores</h3>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  workerStatus.isRunning
+                    ? 'bg-green-500/20 text-green-400'
+                    : 'bg-gray-600 text-gray-400'
+                }`}>
+                  {workerStatus.isRunning ? '● En cours' : '○ Arrêté'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {!workerStatus.isRunning ? (
+                  <button
+                    onClick={startWorker}
+                    disabled={workerLoading}
+                    className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm disabled:opacity-50"
+                  >
+                    ▶️ Démarrer
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopWorker}
+                    disabled={workerLoading}
+                    className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm disabled:opacity-50"
+                  >
+                    ⏹️ Arrêter
+                  </button>
+                )}
+                <button
+                  onClick={forceScan}
+                  disabled={workerLoading}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm disabled:opacity-50"
+                >
+                  🔄 Scanner maintenant
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">
+              Analyse automatique des streams Twitch toutes les 30 secondes pour détecter les scores
+            </p>
+          </div>
+
+          {/* Liste des streams */}
           {loading ? (
             <div className="text-center py-8 text-gray-400">Chargement...</div>
           ) : streams.length === 0 ? (
@@ -244,42 +363,92 @@ export default function AdminStreams() {
             </div>
           ) : (
             <div className="grid gap-4">
-              {streams.map((stream) => (
-                <div
-                  key={stream.id}
-                  className="bg-gray-800 rounded-xl p-4 flex items-center justify-between border-l-4 border-purple-500"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-2xl overflow-hidden">
-                        {stream.xboxAvatar ? (
-                          <img src={stream.xboxAvatar} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          '👤'
-                        )}
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-800 animate-pulse"></div>
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">{stream.username}</h3>
-                      <div className="text-sm text-gray-400 space-x-3">
-                        {stream.xboxGamertag && (
-                          <span>🎮 {stream.xboxGamertag}</span>
-                        )}
-                        <span className="text-purple-400">📺 {stream.twitchUsername}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <a
-                    href={stream.twitchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition"
+              {streams.map((stream) => {
+                const ocrData = getOcrScoreForStream(stream.twitchUsername);
+                return (
+                  <div
+                    key={stream.id}
+                    className="bg-gray-800 rounded-xl p-4 border-l-4 border-purple-500"
                   >
-                    📺 Regarder
-                  </a>
-                </div>
-              ))}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                            {stream.xboxAvatar ? (
+                              <img src={stream.xboxAvatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              '👤'
+                            )}
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-gray-800 animate-pulse"></div>
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg">{stream.username}</h3>
+                          <div className="text-sm text-gray-400 space-x-3">
+                            {stream.xboxGamertag && (
+                              <span>🎮 {stream.xboxGamertag}</span>
+                            )}
+                            <span className="text-purple-400">📺 {stream.twitchUsername}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Score OCR détecté */}
+                      {ocrData && ocrData.detectedScore1 !== null && (
+                        <div className="flex items-center gap-4 bg-gray-700 rounded-lg px-4 py-2">
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-xbox-green">{ocrData.detectedScore1}</p>
+                          </div>
+                          <span className="text-xl text-gray-500">-</span>
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-xbox-green">{ocrData.detectedScore2}</p>
+                          </div>
+                          <div className="text-xs text-gray-400 ml-2">
+                            <div>P{ocrData.detectedPeriod || '?'}</div>
+                            <div>{ocrData.detectedTime || '--:--'}</div>
+                          </div>
+                          {ocrData.powerPlay && (
+                            <span className="text-yellow-400 text-sm">⚡ PP</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Message si pas de score détecté */}
+                      {ocrData && ocrData.detectedScore1 === null && !ocrData.ocrError && (
+                        <div className="text-gray-500 text-sm">
+                          ⏳ En attente de détection...
+                        </div>
+                      )}
+
+                      {/* Erreur OCR */}
+                      {ocrData && ocrData.ocrError && (
+                        <div className="text-red-400 text-sm max-w-xs truncate" title={ocrData.ocrError}>
+                          ❌ {ocrData.ocrError}
+                        </div>
+                      )}
+
+                      <a
+                        href={stream.twitchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition"
+                      >
+                        📺 Regarder
+                      </a>
+                    </div>
+
+                    {/* Dernière mise à jour OCR */}
+                    {ocrData && ocrData.lastOcrAt && (
+                      <div className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                        <span>🕐 Dernière analyse: {new Date(ocrData.lastOcrAt).toLocaleTimeString()}</span>
+                        {ocrData.confidence && (
+                          <span className="text-gray-600">| Confiance: {Math.round(ocrData.confidence * 100)}%</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
