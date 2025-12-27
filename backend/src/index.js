@@ -14,6 +14,7 @@ import xboxRoutes from './routes/xbox.js';
 import liveStreamsRoutes from './routes/liveStreams.js';
 import friendsRoutes from './routes/friends.js';
 import verifyRoutes from './routes/verify.js';
+import adminRoutes from './routes/admin.js';
 import streamManager from './services/streamManager.js';
 
 dotenv.config();
@@ -55,6 +56,7 @@ app.use('/api/xbox', xboxRoutes);
 app.use('/api/live-streams', liveStreamsRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/verify', verifyRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

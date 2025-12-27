@@ -14,6 +14,7 @@ router.get('/me', authenticate, async (req, res) => {
         id: true,
         username: true,
         email: true,
+        isAdmin: true,
         balance: true,
         wins: true,
         losses: true,

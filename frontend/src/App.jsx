@@ -17,6 +17,7 @@ import LiveStreams from './pages/LiveStreams';
 import LiveStreamDetail from './pages/LiveStreamDetail';
 import Friends from './pages/Friends';
 import UserProfile from './pages/UserProfile';
+import AdminStreams from './pages/AdminStreams';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -69,6 +70,10 @@ export default function App() {
             element={<PrivateRoute><Friends /></PrivateRoute>}
           />
           <Route path="/profile/:id" element={<UserProfile />} />
+          <Route
+            path="/admin"
+            element={<PrivateRoute><AdminStreams /></PrivateRoute>}
+          />
         </Routes>
       </main>
     </div>

@@ -57,6 +57,11 @@ export default function Navbar() {
                 <Link to="/friends" className="text-gray-300 hover:text-white transition">
                   Amis
                 </Link>
+                {user.isAdmin && (
+                  <Link to="/admin" className="text-yellow-400 hover:text-yellow-300 transition font-bold">
+                    🛡️ Admin
+                  </Link>
+                )}
               </>
             )}
           </div>

@@ -12,6 +12,7 @@ model User {
   username       String
   email          String
   password       String
+  isAdmin        Boolean   @default(false) // Admin du site
   balance        Int       @default(1000) // Monnaie virtuelle de départ
   wins           Int       @default(0)
   losses         Int       @default(0)
