@@ -91,11 +91,31 @@ router.post('/', authenticate, async (req, res) => {
     const {
       game, player1Name, player2Name, player1Type, player2Type,
       player1Difficulty, player2Difficulty, player1HumanName, player2HumanName,
-      scheduledAt
+      player1UserId, player2UserId, scheduledAt
     } = req.body;
 
     if (!game || !player1Name || !player2Name) {
       return res.status(400).json({ error: 'Jeu et noms des équipes/joueurs requis' });
+    }
+
+    // Si un userId est fourni, récupérer le username pour player1HumanName/player2HumanName
+    let p1HumanName = player1HumanName;
+    let p2HumanName = player2HumanName;
+
+    if (player1UserId && player1Type === 'HUMAN') {
+      const user1 = await req.prisma.user.findUnique({
+        where: { id: player1UserId },
+        select: { username: true }
+      });
+      if (user1) p1HumanName = user1.username;
+    }
+
+    if (player2UserId && player2Type === 'HUMAN') {
+      const user2 = await req.prisma.user.findUnique({
+        where: { id: player2UserId },
+        select: { username: true }
+      });
+      if (user2) p2HumanName = user2.username;
     }
 
     const match = await req.prisma.match.create({
@@ -107,8 +127,10 @@ router.post('/', authenticate, async (req, res) => {
         player2Type: player2Type || 'HUMAN',
         player1Difficulty: player1Type === 'CPU' ? (player1Difficulty || 'PRO') : null,
         player2Difficulty: player2Type === 'CPU' ? (player2Difficulty || 'PRO') : null,
-        player1HumanName: player1Type === 'HUMAN' ? player1HumanName : null,
-        player2HumanName: player2Type === 'HUMAN' ? player2HumanName : null,
+        player1HumanName: player1Type === 'HUMAN' ? p1HumanName : null,
+        player2HumanName: player2Type === 'HUMAN' ? p2HumanName : null,
+        player1Id: player1Type === 'HUMAN' && player1UserId ? player1UserId : null,
+        player2Id: player2Type === 'HUMAN' && player2UserId ? player2UserId : null,
         createdBy: req.userId,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null
       }

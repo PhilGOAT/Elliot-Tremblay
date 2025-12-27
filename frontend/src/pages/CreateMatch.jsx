@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,8 @@ const difficulties = [
 
 export default function CreateMatch() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [users, setUsers] = useState([]);
   const [game, setGame] = useState('MADDEN');
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
@@ -29,9 +32,49 @@ export default function CreateMatch() {
   const [player2Type, setPlayer2Type] = useState('CPU');
   const [player1Difficulty, setPlayer1Difficulty] = useState('PRO');
   const [player2Difficulty, setPlayer2Difficulty] = useState('PRO');
+  const [player1UserId, setPlayer1UserId] = useState('');
+  const [player2UserId, setPlayer2UserId] = useState('');
   const [player1HumanName, setPlayer1HumanName] = useState('');
   const [player2HumanName, setPlayer2HumanName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Charger la liste des utilisateurs
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await api.get('/users');
+        setUsers(res.data);
+      } catch (error) {
+        console.error('Erreur chargement utilisateurs:', error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Quand un utilisateur est sélectionné, mettre à jour le nom humain
+  const handlePlayer1UserSelect = (userId) => {
+    setPlayer1UserId(userId);
+    if (userId) {
+      const selectedUser = users.find(u => u.id === userId);
+      if (selectedUser) {
+        setPlayer1HumanName(selectedUser.username);
+      }
+    } else {
+      setPlayer1HumanName('');
+    }
+  };
+
+  const handlePlayer2UserSelect = (userId) => {
+    setPlayer2UserId(userId);
+    if (userId) {
+      const selectedUser = users.find(u => u.id === userId);
+      if (selectedUser) {
+        setPlayer2HumanName(selectedUser.username);
+      }
+    } else {
+      setPlayer2HumanName('');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,7 +95,9 @@ export default function CreateMatch() {
         player1Difficulty: player1Type === 'CPU' ? player1Difficulty : null,
         player2Difficulty: player2Type === 'CPU' ? player2Difficulty : null,
         player1HumanName: player1Type === 'HUMAN' ? player1HumanName.trim() : null,
-        player2HumanName: player2Type === 'HUMAN' ? player2HumanName.trim() : null
+        player2HumanName: player2Type === 'HUMAN' ? player2HumanName.trim() : null,
+        player1UserId: player1Type === 'HUMAN' && player1UserId ? player1UserId : null,
+        player2UserId: player2Type === 'HUMAN' && player2UserId ? player2UserId : null
       });
       toast.success('Match créé!');
       navigate(`/matches/${res.data.id}`);
@@ -122,13 +167,25 @@ export default function CreateMatch() {
               </button>
             </div>
             {player1Type === 'HUMAN' && (
-              <input
-                type="text"
-                value={player1HumanName}
-                onChange={(e) => setPlayer1HumanName(e.target.value)}
-                className="input"
-                placeholder="Nom du joueur (ex: Phil, Alex...)"
-              />
+              <div className="space-y-2">
+                <select
+                  value={player1UserId}
+                  onChange={(e) => handlePlayer1UserSelect(e.target.value)}
+                  className="input"
+                >
+                  <option value="">-- Sélectionner un joueur --</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.username}
+                    </option>
+                  ))}
+                </select>
+                {player1UserId && (
+                  <p className="text-sm text-green-400">
+                    ✓ Joueur: {player1HumanName}
+                  </p>
+                )}
+              </div>
             )}
             {player1Type === 'CPU' && (
               <select
@@ -181,13 +238,25 @@ export default function CreateMatch() {
               </button>
             </div>
             {player2Type === 'HUMAN' && (
-              <input
-                type="text"
-                value={player2HumanName}
-                onChange={(e) => setPlayer2HumanName(e.target.value)}
-                className="input"
-                placeholder="Nom du joueur (ex: Phil, Alex...)"
-              />
+              <div className="space-y-2">
+                <select
+                  value={player2UserId}
+                  onChange={(e) => handlePlayer2UserSelect(e.target.value)}
+                  className="input"
+                >
+                  <option value="">-- Sélectionner un joueur --</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.username}
+                    </option>
+                  ))}
+                </select>
+                {player2UserId && (
+                  <p className="text-sm text-green-400">
+                    ✓ Joueur: {player2HumanName}
+                  </p>
+                )}
+              </div>
             )}
             {player2Type === 'CPU' && (
               <select
