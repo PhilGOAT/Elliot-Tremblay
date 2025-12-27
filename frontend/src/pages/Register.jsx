@@ -152,21 +152,27 @@ export default function Register() {
               />
               <div>
                 <span className="text-sm text-gray-200">
-                  📺 J'accepte que mes parties soient suivies pour les paris
+                  📺 J'accepte de streamer mes parties sur le canal privé du site
                 </span>
                 <p className="text-xs text-gray-400 mt-1">
-                  Ton gameplay sera visible uniquement par l'admin pour entrer les scores.
+                  Tu devras streamer sur le canal Twitch du site pour que tes matchs soient suivis.
                 </p>
               </div>
             </label>
 
             {consent && (
-              <div className="mt-3 pt-3 border-t border-purple-600/20">
-                <p className="text-xs text-gray-500">
-                  🔒 <strong>Toujours privé</strong> - Seul l'admin voit ton stream pour les scores.
+              <div className="mt-3 pt-3 border-t border-purple-600/20 space-y-2">
+                <p className="text-xs text-gray-400">
+                  <strong className="text-purple-400">📺 Comment ça marche:</strong>
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  💡 Tu veux que tes amis regardent? Lance ton propre stream Twitch public!
+                <ol className="text-xs text-gray-500 list-decimal list-inside space-y-1">
+                  <li>Quand tu joues, tu stream sur le canal du site</li>
+                  <li>L'admin te donnera la clé de stream</li>
+                  <li>Seul l'admin voit ton stream (privé)</li>
+                  <li>L'admin entre les scores pour les paris</li>
+                </ol>
+                <p className="text-xs text-gray-500 mt-2">
+                  💡 Tu veux que tes amis regardent aussi? Lance ton propre stream Twitch public en plus!
                 </p>
               </div>
             )}
