@@ -110,6 +110,17 @@ model Match {
   player2SubmittedP2Score Int?    // Score P2 soumis par joueur 2
   player2SubmittedAt      DateTime?
   scoreDispute            Boolean  @default(false) // Conflit de scores
+
+  // OCR - Détection automatique du score
+  ocrEnabled       Boolean  @default(false)  // OCR activé pour ce match
+  twitchChannel    String?                   // Channel Twitch lié
+  ocrScore1        Int?                      // Dernier score détecté par OCR
+  ocrScore2        Int?
+  ocrPeriod        Int?
+  ocrTime          String?
+  ocrLastUpdate    DateTime?                 // Dernière mise à jour OCR
+  ocrConfidence    Float?                    // Confiance de la détection
+
   createdBy    String      // User qui a créé le match
   scheduledAt  DateTime?
   createdAt    DateTime    @default(now())

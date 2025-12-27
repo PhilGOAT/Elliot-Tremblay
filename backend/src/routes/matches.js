@@ -91,7 +91,9 @@ router.post('/', authenticate, async (req, res) => {
     const {
       game, player1Name, player2Name, player1Type, player2Type,
       player1Difficulty, player2Difficulty, player1HumanName, player2HumanName,
-      player1UserId, player2UserId, scheduledAt
+      player1UserId, player2UserId, scheduledAt,
+      // OCR options
+      ocrEnabled, twitchChannel
     } = req.body;
 
     if (!game || !player1Name || !player2Name) {
@@ -132,7 +134,10 @@ router.post('/', authenticate, async (req, res) => {
         player1Id: player1Type === 'HUMAN' && player1UserId ? player1UserId : null,
         player2Id: player2Type === 'HUMAN' && player2UserId ? player2UserId : null,
         createdBy: req.userId,
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : null
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        // OCR options
+        ocrEnabled: ocrEnabled || false,
+        twitchChannel: ocrEnabled && twitchChannel ? twitchChannel : null
       }
     });
 
@@ -603,6 +608,335 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Cancel match error:', error);
     res.status(500).json({ error: 'Erreur lors de l\'annulation' });
+  }
+});
+
+// ============================================
+// OCR - Détection automatique du score
+// ============================================
+
+// Activer l'OCR pour un match (lier à un stream Twitch)
+router.post('/:id/ocr/enable', authenticate, async (req, res) => {
+  try {
+    const { twitchChannel } = req.body;
+
+    const match = await req.prisma.match.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    // Vérifier que c'est le créateur ou un participant
+    if (match.createdBy !== req.userId && match.player1Id !== req.userId && match.player2Id !== req.userId) {
+      return res.status(403).json({ error: 'Tu ne participes pas à ce match' });
+    }
+
+    if (match.status === 'COMPLETED' || match.status === 'CANCELLED') {
+      return res.status(400).json({ error: 'Match terminé ou annulé' });
+    }
+
+    // Si pas de twitchChannel fourni, utiliser celui de l'utilisateur
+    let channel = twitchChannel;
+    if (!channel) {
+      const user = await req.prisma.user.findUnique({
+        where: { id: req.userId },
+        select: { twitchUsername: true }
+      });
+      channel = user?.twitchUsername;
+    }
+
+    if (!channel) {
+      return res.status(400).json({ error: 'Aucun channel Twitch spécifié ou configuré' });
+    }
+
+    // Activer l'OCR
+    const updatedMatch = await req.prisma.match.update({
+      where: { id: req.params.id },
+      data: {
+        ocrEnabled: true,
+        twitchChannel: channel,
+        status: 'LIVE'
+      }
+    });
+
+    res.json({
+      message: `OCR activé! Le score sera détecté automatiquement depuis ${channel}`,
+      match: updatedMatch
+    });
+  } catch (error) {
+    console.error('Enable OCR error:', error);
+    res.status(500).json({ error: 'Erreur activation OCR' });
+  }
+});
+
+// Désactiver l'OCR pour un match
+router.post('/:id/ocr/disable', authenticate, async (req, res) => {
+  try {
+    const match = await req.prisma.match.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    if (match.createdBy !== req.userId) {
+      return res.status(403).json({ error: 'Seul le créateur peut désactiver l\'OCR' });
+    }
+
+    const updatedMatch = await req.prisma.match.update({
+      where: { id: req.params.id },
+      data: {
+        ocrEnabled: false
+      }
+    });
+
+    res.json({
+      message: 'OCR désactivé',
+      match: updatedMatch
+    });
+  } catch (error) {
+    console.error('Disable OCR error:', error);
+    res.status(500).json({ error: 'Erreur désactivation OCR' });
+  }
+});
+
+// Obtenir le score OCR actuel pour un match
+router.get('/:id/ocr', async (req, res) => {
+  try {
+    const match = await req.prisma.match.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        ocrEnabled: true,
+        twitchChannel: true,
+        ocrScore1: true,
+        ocrScore2: true,
+        ocrPeriod: true,
+        ocrTime: true,
+        ocrLastUpdate: true,
+        ocrConfidence: true,
+        status: true
+      }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    // Si OCR est activé, chercher aussi dans ActiveStream pour les données en temps réel
+    let liveData = null;
+    if (match.ocrEnabled && match.twitchChannel) {
+      liveData = await req.prisma.activeStream.findUnique({
+        where: { twitchChannel: match.twitchChannel }
+      });
+    }
+
+    res.json({
+      ...match,
+      liveStream: liveData ? {
+        isLive: liveData.isLive,
+        detectedScore1: liveData.detectedScore1,
+        detectedScore2: liveData.detectedScore2,
+        detectedPeriod: liveData.detectedPeriod,
+        detectedTime: liveData.detectedTime,
+        powerPlay: liveData.powerPlay,
+        confidence: liveData.confidence,
+        lastOcrAt: liveData.lastOcrAt
+      } : null
+    });
+  } catch (error) {
+    console.error('Get OCR status error:', error);
+    res.status(500).json({ error: 'Erreur récupération OCR' });
+  }
+});
+
+// Appliquer le score OCR comme score final
+router.post('/:id/ocr/apply', authenticate, async (req, res) => {
+  try {
+    const match = await req.prisma.match.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    if (match.createdBy !== req.userId) {
+      return res.status(403).json({ error: 'Seul le créateur peut appliquer le score' });
+    }
+
+    if (!match.ocrEnabled) {
+      return res.status(400).json({ error: 'OCR non activé pour ce match' });
+    }
+
+    // Récupérer le score depuis ActiveStream
+    const liveData = await req.prisma.activeStream.findUnique({
+      where: { twitchChannel: match.twitchChannel }
+    });
+
+    if (!liveData || liveData.detectedScore1 === null) {
+      return res.status(400).json({ error: 'Aucun score détecté' });
+    }
+
+    // Mettre à jour le match avec le score OCR
+    await req.prisma.match.update({
+      where: { id: req.params.id },
+      data: {
+        ocrScore1: liveData.detectedScore1,
+        ocrScore2: liveData.detectedScore2,
+        ocrPeriod: liveData.detectedPeriod,
+        ocrTime: liveData.detectedTime,
+        ocrLastUpdate: new Date(),
+        ocrConfidence: liveData.confidence
+      }
+    });
+
+    res.json({
+      message: 'Score OCR enregistré',
+      score1: liveData.detectedScore1,
+      score2: liveData.detectedScore2,
+      period: liveData.detectedPeriod,
+      time: liveData.detectedTime
+    });
+  } catch (error) {
+    console.error('Apply OCR score error:', error);
+    res.status(500).json({ error: 'Erreur application score OCR' });
+  }
+});
+
+// Finaliser le match avec le score OCR
+router.post('/:id/ocr/finalize', authenticate, async (req, res) => {
+  try {
+    const match = await req.prisma.match.findUnique({
+      where: { id: req.params.id },
+      include: { bets: true }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: 'Match non trouvé' });
+    }
+
+    if (match.createdBy !== req.userId) {
+      return res.status(403).json({ error: 'Seul le créateur peut finaliser' });
+    }
+
+    if (match.status === 'COMPLETED') {
+      return res.status(400).json({ error: 'Match déjà terminé' });
+    }
+
+    // Utiliser le score OCR stocké ou le dernier score live
+    let player1Score = match.ocrScore1;
+    let player2Score = match.ocrScore2;
+
+    if (player1Score === null && match.twitchChannel) {
+      const liveData = await req.prisma.activeStream.findUnique({
+        where: { twitchChannel: match.twitchChannel }
+      });
+      if (liveData) {
+        player1Score = liveData.detectedScore1;
+        player2Score = liveData.detectedScore2;
+      }
+    }
+
+    if (player1Score === null || player2Score === null) {
+      return res.status(400).json({ error: 'Aucun score détecté pour finaliser' });
+    }
+
+    // Déterminer le gagnant
+    let winningPrediction = null;
+    if (player1Score > player2Score) {
+      winningPrediction = 'player1';
+    } else if (player2Score > player1Score) {
+      winningPrediction = 'player2';
+    }
+
+    // Calculer les stats
+    const thresholds = GAME_THRESHOLDS[match.game] || GAME_THRESHOLDS.OTHER;
+    const scoreDiff = Math.abs(player1Score - player2Score);
+    const totalScore = player1Score + player2Score;
+    const isCloseMatch = scoreDiff <= thresholds.closeMatch;
+    const isHighScore = totalScore >= thresholds.highScore;
+
+    // Transaction pour finaliser
+    await req.prisma.$transaction(async (tx) => {
+      await tx.match.update({
+        where: { id: req.params.id },
+        data: {
+          player1Score,
+          player2Score,
+          winnerId: winningPrediction,
+          status: 'COMPLETED',
+          ocrEnabled: false
+        }
+      });
+
+      // Traiter les paris (même logique que submit-score)
+      for (const bet of match.bets) {
+        const betType = bet.betType || 'WINNER';
+        let betWon = false;
+        let betRefunded = false;
+
+        if (betType === 'WINNER') {
+          if (winningPrediction === null) {
+            betRefunded = true;
+          } else {
+            betWon = bet.prediction === winningPrediction;
+          }
+        } else if (betType === 'CLOSE_MATCH') {
+          betWon = (bet.prediction === 'yes' && isCloseMatch) ||
+                   (bet.prediction === 'no' && !isCloseMatch);
+        } else if (betType === 'HIGH_SCORE') {
+          betWon = (bet.prediction === 'yes' && isHighScore) ||
+                   (bet.prediction === 'no' && !isHighScore);
+        }
+
+        if (betRefunded) {
+          await tx.bet.update({
+            where: { id: bet.id },
+            data: { status: 'REFUNDED', payout: bet.amount }
+          });
+          await tx.user.update({
+            where: { id: bet.userId },
+            data: { balance: { increment: bet.amount } }
+          });
+        } else if (betWon) {
+          const payout = bet.amount * 2;
+          await tx.bet.update({
+            where: { id: bet.id },
+            data: { status: 'WON', payout }
+          });
+          await tx.user.update({
+            where: { id: bet.userId },
+            data: {
+              balance: { increment: payout },
+              wins: { increment: 1 }
+            }
+          });
+        } else {
+          await tx.bet.update({
+            where: { id: bet.id },
+            data: { status: 'LOST', payout: 0 }
+          });
+          await tx.user.update({
+            where: { id: bet.userId },
+            data: { losses: { increment: 1 } }
+          });
+        }
+      }
+    });
+
+    res.json({
+      message: 'Match finalisé avec le score OCR!',
+      player1Score,
+      player2Score,
+      winner: winningPrediction
+    });
+  } catch (error) {
+    console.error('Finalize OCR match error:', error);
+    res.status(500).json({ error: 'Erreur finalisation match' });
   }
 });
 

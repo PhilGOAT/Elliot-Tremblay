@@ -160,6 +160,35 @@ router.post('/daily-bonus', authenticate, async (req, res) => {
   }
 });
 
+// Vérifier si l'utilisateur connecté est en train de streamer
+router.get('/me/stream-status', authenticate, async (req, res) => {
+  try {
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.userId },
+      select: {
+        twitchUsername: true
+      }
+    });
+
+    if (!user || !user.twitchUsername) {
+      return res.json({
+        isLive: false,
+        twitchUsername: null
+      });
+    }
+
+    const isLive = await checkTwitchLive(user.twitchUsername);
+
+    res.json({
+      isLive,
+      twitchUsername: user.twitchUsername
+    });
+  } catch (error) {
+    console.error('Stream status error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Classement
 router.get('/leaderboard', async (req, res) => {
   try {

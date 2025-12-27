@@ -1,9 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import GameBadge from '../components/GameBadge';
 import toast from 'react-hot-toast';
+
+// Période labels
+const periodLabels = {
+  1: '1ère',
+  2: '2ème',
+  3: '3ème',
+  4: 'Prol.',
+  5: 'TB'
+};
 
 const difficultyLabels = {
   ROOKIE: 'Rookie',
@@ -55,9 +64,33 @@ export default function MatchDetail() {
   const [submitP1Score, setSubmitP1Score] = useState(0);
   const [submitP2Score, setSubmitP2Score] = useState(0);
 
+  // OCR State
+  const [ocrData, setOcrData] = useState(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [enablingOcr, setEnablingOcr] = useState(false);
+  const [twitchChannel, setTwitchChannel] = useState('');
+
   useEffect(() => {
     fetchMatch();
   }, [id]);
+
+  // Auto-refresh OCR data every 15 seconds if enabled
+  useEffect(() => {
+    if (!match?.ocrEnabled) return;
+
+    const fetchOcr = async () => {
+      try {
+        const res = await api.get(`/matches/${id}/ocr`);
+        setOcrData(res.data);
+      } catch (error) {
+        console.error('OCR fetch error:', error);
+      }
+    };
+
+    fetchOcr();
+    const interval = setInterval(fetchOcr, 15000);
+    return () => clearInterval(interval);
+  }, [match?.ocrEnabled, id]);
 
   const fetchMatch = async () => {
     try {
@@ -176,6 +209,59 @@ export default function MatchDetail() {
       toast.error(error.response?.data?.error || 'Erreur');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // OCR Handlers
+  const handleEnableOcr = async () => {
+    if (!twitchChannel.trim()) {
+      toast.error('Entre le nom du channel Twitch');
+      return;
+    }
+
+    setEnablingOcr(true);
+    try {
+      await api.post(`/matches/${id}/ocr/enable`, { twitchChannel: twitchChannel.trim() });
+      toast.success('OCR activé! Le score sera détecté automatiquement.');
+      fetchMatch();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur activation OCR');
+    } finally {
+      setEnablingOcr(false);
+    }
+  };
+
+  const handleDisableOcr = async () => {
+    try {
+      await api.post(`/matches/${id}/ocr/disable`);
+      toast.success('OCR désactivé');
+      setOcrData(null);
+      fetchMatch();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    }
+  };
+
+  const handleApplyOcrScore = async () => {
+    try {
+      await api.post(`/matches/${id}/ocr/apply`);
+      toast.success('Score OCR appliqué comme score soumis!');
+      fetchMatch();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
+    }
+  };
+
+  const handleFinalizeWithOcr = async () => {
+    if (!confirm('Finaliser le match avec le score OCR? Cette action est définitive.')) return;
+
+    try {
+      await api.post(`/matches/${id}/ocr/finalize`);
+      toast.success('Match finalisé avec le score OCR!');
+      fetchMatch();
+      refreshUser();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Erreur');
     }
   };
 
@@ -626,6 +712,146 @@ export default function MatchDetail() {
             <p className="text-xs text-gray-500 mt-3 text-center">
               Les deux joueurs doivent soumettre le même score pour valider le match
             </p>
+          </div>
+        )}
+
+        {/* Section OCR - Détection automatique du score */}
+        {isCreator && match.status !== 'COMPLETED' && match.status !== 'CANCELLED' && (
+          <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/50 rounded-lg p-4 mb-6">
+            <h3 className="font-bold mb-3 flex items-center gap-2">
+              <span className="text-xl">📺</span>
+              Détection automatique du score
+              {match.ocrEnabled && (
+                <span className="text-xs bg-green-600 px-2 py-1 rounded animate-pulse">EN DIRECT</span>
+              )}
+            </h3>
+
+            {!match.ocrEnabled ? (
+              // Formulaire pour activer l'OCR
+              <div>
+                <p className="text-sm text-gray-300 mb-3">
+                  Active la détection OCR pour suivre le score automatiquement depuis ton stream Twitch.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={twitchChannel}
+                    onChange={(e) => setTwitchChannel(e.target.value)}
+                    placeholder="Nom du channel Twitch"
+                    className="input flex-1"
+                  />
+                  <button
+                    onClick={handleEnableOcr}
+                    disabled={enablingOcr}
+                    className="btn-primary"
+                  >
+                    {enablingOcr ? 'Activation...' : 'Activer OCR'}
+                  </button>
+                </div>
+                {user?.twitchUsername && (
+                  <button
+                    onClick={() => setTwitchChannel(user.twitchUsername)}
+                    className="text-xs text-purple-400 hover:text-purple-300 mt-2"
+                  >
+                    Utiliser mon compte: {user.twitchUsername}
+                  </button>
+                )}
+              </div>
+            ) : (
+              // Affichage du score OCR en temps réel
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-sm text-gray-400">Channel:</span>
+                  <a
+                    href={`https://twitch.tv/${match.twitchChannel}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-400 hover:text-purple-300 font-medium"
+                  >
+                    {match.twitchChannel}
+                  </a>
+                  <button
+                    onClick={handleDisableOcr}
+                    className="ml-auto text-xs text-red-400 hover:text-red-300"
+                  >
+                    Désactiver OCR
+                  </button>
+                </div>
+
+                {/* Score détecté */}
+                <div className="bg-gray-800/80 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-400">Score détecté par OCR</span>
+                    {ocrData?.confidence && (
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        ocrData.confidence > 0.8 ? 'bg-green-600' :
+                        ocrData.confidence > 0.5 ? 'bg-yellow-600' : 'bg-red-600'
+                      }`}>
+                        {Math.round(ocrData.confidence * 100)}% confiance
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-center gap-6 py-4">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-400 mb-1">{match.player1Name}</p>
+                      <p className="text-5xl font-bold text-xbox-green">
+                        {match.ocrScore1 ?? '-'}
+                      </p>
+                    </div>
+                    <div className="text-2xl text-gray-500">-</div>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-400 mb-1">{match.player2Name}</p>
+                      <p className="text-5xl font-bold text-xbox-green">
+                        {match.ocrScore2 ?? '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Période et temps */}
+                  {(match.ocrPeriod || match.ocrTime) && (
+                    <div className="flex items-center justify-center gap-4 text-gray-300">
+                      {match.ocrPeriod && (
+                        <span className="bg-gray-700 px-3 py-1 rounded">
+                          {periodLabels[match.ocrPeriod] || `P${match.ocrPeriod}`} période
+                        </span>
+                      )}
+                      {match.ocrTime && (
+                        <span className="font-mono text-lg">{match.ocrTime}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {match.ocrLastUpdate && (
+                    <p className="text-xs text-gray-500 text-center mt-3">
+                      Dernière mise à jour: {new Date(match.ocrLastUpdate).toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions OCR */}
+                {match.ocrScore1 !== null && match.ocrScore2 !== null && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleApplyOcrScore}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition"
+                    >
+                      Soumettre ce score
+                    </button>
+                    <button
+                      onClick={handleFinalizeWithOcr}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition"
+                    >
+                      Finaliser le match
+                    </button>
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-500 text-center mt-3">
+                  Le score est détecté automatiquement toutes les 30 secondes depuis le stream
+                </p>
+              </div>
+            )}
           </div>
         )}
 

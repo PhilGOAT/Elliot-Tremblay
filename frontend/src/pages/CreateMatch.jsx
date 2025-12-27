@@ -38,6 +38,12 @@ export default function CreateMatch() {
   const [player2HumanName, setPlayer2HumanName] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // OCR / Twitch
+  const [enableOcr, setEnableOcr] = useState(false);
+  const [twitchChannel, setTwitchChannel] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [checkingStream, setCheckingStream] = useState(false);
+
   // Charger la liste des utilisateurs
   useEffect(() => {
     const fetchUsers = async () => {
@@ -61,6 +67,31 @@ export default function CreateMatch() {
       }
     }
   }, [user, users]);
+
+  // Vérifier si l'utilisateur stream actuellement
+  useEffect(() => {
+    if (!user?.twitchUsername) return;
+
+    const checkStream = async () => {
+      setCheckingStream(true);
+      try {
+        // Vérifier via les active streams de l'admin
+        const res = await api.get('/users/me/stream-status');
+        if (res.data.isLive) {
+          setIsStreaming(true);
+          setTwitchChannel(user.twitchUsername);
+          setEnableOcr(true);
+        }
+      } catch (error) {
+        // Endpoint peut ne pas exister, on utilise le username Twitch par défaut
+        setTwitchChannel(user.twitchUsername);
+      } finally {
+        setCheckingStream(false);
+      }
+    };
+
+    checkStream();
+  }, [user]);
 
   // Quand un utilisateur est sélectionné, mettre à jour le nom humain
   const handlePlayer1UserSelect = (userId) => {
@@ -108,9 +139,12 @@ export default function CreateMatch() {
         player1HumanName: player1Type === 'HUMAN' ? player1HumanName.trim() : null,
         player2HumanName: player2Type === 'HUMAN' ? player2HumanName.trim() : null,
         player1UserId: player1Type === 'HUMAN' && player1UserId ? player1UserId : null,
-        player2UserId: player2Type === 'HUMAN' && player2UserId ? player2UserId : null
+        player2UserId: player2Type === 'HUMAN' && player2UserId ? player2UserId : null,
+        // OCR options
+        ocrEnabled: enableOcr && twitchChannel.trim() ? true : false,
+        twitchChannel: enableOcr && twitchChannel.trim() ? twitchChannel.trim() : null
       });
-      toast.success('Match créé!');
+      toast.success(enableOcr ? 'Match créé avec détection OCR!' : 'Match créé!');
       navigate(`/matches/${res.data.id}`);
     } catch (error) {
       toast.error(error.response?.data?.error || 'Erreur lors de la création');
@@ -284,17 +318,74 @@ export default function CreateMatch() {
             )}
           </div>
 
+          {/* Section OCR - Détection automatique */}
+          {user?.twitchUsername && (
+            <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enableOcr}
+                    onChange={(e) => setEnableOcr(e.target.checked)}
+                    className="w-4 h-4 rounded accent-purple-500"
+                  />
+                  <span className="text-sm font-medium">Détection automatique du score</span>
+                </label>
+                {isStreaming && (
+                  <span className="text-xs bg-red-600 px-2 py-1 rounded animate-pulse">
+                    EN DIRECT
+                  </span>
+                )}
+              </div>
+
+              {enableOcr && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={twitchChannel}
+                      onChange={(e) => setTwitchChannel(e.target.value)}
+                      placeholder="Channel Twitch"
+                      className="input flex-1 text-sm"
+                    />
+                    {user.twitchUsername && twitchChannel !== user.twitchUsername && (
+                      <button
+                        type="button"
+                        onClick={() => setTwitchChannel(user.twitchUsername)}
+                        className="text-xs text-purple-400 hover:text-purple-300 px-2"
+                      >
+                        Mon compte
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Le score sera détecté automatiquement depuis ton stream Twitch
+                  </p>
+                </div>
+              )}
+
+              {checkingStream && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Vérification du stream en cours...
+                </p>
+              )}
+            </div>
+          )}
+
           <button
             type="submit"
             className="btn-primary w-full"
             disabled={loading}
           >
-            {loading ? 'Création...' : 'Créer le match'}
+            {loading ? 'Création...' : enableOcr ? 'Créer avec OCR' : 'Créer le match'}
           </button>
         </form>
 
         <p className="text-sm text-gray-500 text-center mt-4">
-          Tu pourras parier et entrer le résultat après
+          {enableOcr
+            ? 'Le score sera détecté automatiquement depuis Twitch'
+            : 'Tu pourras parier et entrer le résultat après'
+          }
         </p>
       </div>
     </div>
