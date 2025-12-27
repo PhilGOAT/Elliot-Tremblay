@@ -12,6 +12,7 @@ import notificationRoutes from './routes/notifications.js';
 import tournamentRoutes from './routes/tournaments.js';
 import xboxRoutes from './routes/xbox.js';
 import liveStreamsRoutes from './routes/liveStreams.js';
+import friendsRoutes from './routes/friends.js';
 import streamManager from './services/streamManager.js';
 
 dotenv.config();
@@ -51,6 +52,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/xbox', xboxRoutes);
 app.use('/api/live-streams', liveStreamsRoutes);
+app.use('/api/friends', friendsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

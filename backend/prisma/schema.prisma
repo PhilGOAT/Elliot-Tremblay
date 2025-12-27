@@ -52,6 +52,33 @@ model User {
   matchesAsPlayer1 Match[] @relation("Player1")
   matchesAsPlayer2 Match[] @relation("Player2")
   notifications  Notification[]
+
+  // Relations amis
+  sentFriendRequests     Friendship[] @relation("FriendshipSender")
+  receivedFriendRequests Friendship[] @relation("FriendshipReceiver")
+}
+
+model Friendship {
+  id         String           @id @default(uuid())
+  senderId   String
+  sender     User             @relation("FriendshipSender", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User             @relation("FriendshipReceiver", fields: [receiverId], references: [id])
+  status     FriendshipStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+enum FriendshipStatus {
+  PENDING   // Demande envoyée
+  ACCEPTED  // Amis
+  DECLINED  // Refusée
+  BLOCKED   // Bloqué
 }
 
 model Match {
@@ -224,6 +251,8 @@ enum NotificationType {
   BET_REFUNDED
   NEW_MATCH
   MATCH_RESULT
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
 }
 
 enum TournamentStatus {

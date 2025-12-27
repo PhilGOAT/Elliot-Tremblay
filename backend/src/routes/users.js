@@ -176,6 +176,36 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
+// Profil public d'un utilisateur
+router.get('/:id', async (req, res) => {
+  try {
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        username: true,
+        balance: true,
+        wins: true,
+        losses: true,
+        xboxGamertag: true,
+        twitchUsername: true,
+        xboxAvatar: true,
+        xboxVerified: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Get user profile error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Liste des utilisateurs (pour créer des matchs)
 router.get('/', authenticate, async (req, res) => {
   try {

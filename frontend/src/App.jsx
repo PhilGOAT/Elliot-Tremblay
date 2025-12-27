@@ -15,6 +15,8 @@ import TournamentDetail from './pages/TournamentDetail';
 import CreateTournament from './pages/CreateTournament';
 import LiveStreams from './pages/LiveStreams';
 import LiveStreamDetail from './pages/LiveStreamDetail';
+import Friends from './pages/Friends';
+import UserProfile from './pages/UserProfile';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -62,6 +64,11 @@ export default function App() {
           />
           <Route path="/live" element={<LiveStreams />} />
           <Route path="/live/:id" element={<LiveStreamDetail />} />
+          <Route
+            path="/friends"
+            element={<PrivateRoute><Friends /></PrivateRoute>}
+          />
+          <Route path="/profile/:id" element={<UserProfile />} />
         </Routes>
       </main>
     </div>

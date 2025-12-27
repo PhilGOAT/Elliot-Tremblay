@@ -54,6 +54,9 @@ export default function Navbar() {
                 <Link to="/my-bets" className="text-gray-300 hover:text-white transition">
                   Mes Paris
                 </Link>
+                <Link to="/friends" className="text-gray-300 hover:text-white transition">
+                  Amis
+                </Link>
               </>
             )}
           </div>
