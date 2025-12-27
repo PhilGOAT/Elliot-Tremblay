@@ -691,4 +691,44 @@ router.get('/ocr-stats', async (req, res) => {
   }
 });
 
+/**
+ * GET /live-streams/:id/twitch-status
+ * Vérifie si le stream Twitch est en ligne
+ */
+router.get('/:id/twitch-status', async (req, res) => {
+  try {
+    const stream = await prisma.liveStream.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!stream) {
+      return res.status(404).json({ error: 'Stream non trouvé' });
+    }
+
+    // Extraire le channel Twitch depuis l'URL
+    const twitchMatch = stream.streamUrl?.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
+    const channelName = twitchMatch ? twitchMatch[1] : null;
+
+    if (!channelName) {
+      return res.json({
+        isLive: false,
+        channel: null,
+        error: 'Pas de canal Twitch configuré'
+      });
+    }
+
+    // Vérifier si le stream est en ligne via streamlink
+    const isLive = await streamCapture.checkStreamLive(channelName);
+
+    res.json({
+      isLive,
+      channel: channelName,
+      checkedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Erreur vérification Twitch:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

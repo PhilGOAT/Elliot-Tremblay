@@ -378,6 +378,56 @@ export async function captureStreamFrame(streamUrl) {
   });
 }
 
+/**
+ * Vérifie si un stream Twitch est en ligne
+ */
+export async function checkStreamLive(channelName) {
+  console.log(`[Twitch] Vérification si ${channelName} est en ligne...`);
+
+  return new Promise((resolve) => {
+    // Utiliser streamlink pour vérifier si le stream est disponible
+    const streamlink = spawn('streamlink', [
+      `https://twitch.tv/${channelName}`,
+      '--stream-url',
+      'best'
+    ]);
+
+    let output = '';
+    let errorOutput = '';
+
+    streamlink.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    streamlink.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    streamlink.on('close', (code) => {
+      // Si streamlink trouve une URL de stream, le stream est en ligne
+      if (code === 0 && output.trim()) {
+        console.log(`[Twitch] ${channelName} est EN LIGNE`);
+        resolve(true);
+      } else {
+        console.log(`[Twitch] ${channelName} est HORS LIGNE`);
+        resolve(false);
+      }
+    });
+
+    streamlink.on('error', () => {
+      console.log(`[Twitch] Erreur vérification ${channelName}`);
+      resolve(false);
+    });
+
+    // Timeout après 5 secondes
+    setTimeout(() => {
+      streamlink.kill();
+      console.log(`[Twitch] Timeout vérification ${channelName}`);
+      resolve(false);
+    }, 5000);
+  });
+}
+
 export default {
   analyzeScreenshot,
   analyzeScoreboard,
@@ -386,6 +436,7 @@ export default {
   captureStreamFrame,
   captureTwitchFrame,
   analyzeFromTwitch,
+  checkStreamLive,
   NHL_REGIONS,
   PATTERNS
 };

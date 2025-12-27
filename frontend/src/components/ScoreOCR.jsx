@@ -20,12 +20,52 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
   const [captureCount, setCaptureCount] = useState(0);
   const [lastConfidence, setLastConfidence] = useState(null);
   const [lastScore, setLastScore] = useState({ score1: null, score2: null });
-  const [captureStatus, setCaptureStatus] = useState('idle'); // idle, capturing, success, error
+  const [captureStatus, setCaptureStatus] = useState('idle');
   const intervalRef = useRef(null);
   const countdownRef = useRef(null);
 
-  // Intervalle de capture automatique (en secondes) - Plus rapide!
+  // Status du stream Twitch
+  const [twitchIsLive, setTwitchIsLive] = useState(null); // null = checking, true/false
+  const [lastTwitchCheck, setLastTwitchCheck] = useState(null);
+  const twitchCheckRef = useRef(null);
+
   const CAPTURE_INTERVAL = 15;
+  const TWITCH_CHECK_INTERVAL = 30000; // Vérifier toutes les 30s
+
+  // Vérifier si le stream Twitch est en ligne
+  const checkTwitchStatus = async () => {
+    if (!streamId) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/live-streams/${streamId}/twitch-status`);
+      const data = await response.json();
+
+      setTwitchIsLive(data.isLive);
+      setLastTwitchCheck(new Date());
+
+      // Auto-activer l'OCR si le stream vient de passer en ligne
+      if (data.isLive && !autoCapture && twitchIsLive === false) {
+        setAutoCapture(true);
+      }
+    } catch (err) {
+      console.error('Erreur vérification Twitch:', err);
+    }
+  };
+
+  // Vérifier le statut Twitch périodiquement
+  useEffect(() => {
+    if (twitchChannel) {
+      // Vérification immédiate
+      checkTwitchStatus();
+
+      // Vérification périodique
+      twitchCheckRef.current = setInterval(checkTwitchStatus, TWITCH_CHECK_INTERVAL);
+
+      return () => {
+        if (twitchCheckRef.current) clearInterval(twitchCheckRef.current);
+      };
+    }
+  }, [twitchChannel, streamId]);
 
   // Capture automatique depuis Twitch
   const captureFromTwitch = async (isAuto = false) => {
@@ -71,8 +111,8 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         setLastConfidence(data.confidence || 0.5);
         setLastScore({ score1: detected.score1, score2: detected.score2 });
         setCaptureStatus('success');
+        setTwitchIsLive(true); // Le stream est en ligne si on peut capturer
 
-        // En mode auto, appliquer directement si confiance élevée
         if (isAuto && data.confidence && data.confidence > 0.8) {
           if (onScoreDetected) {
             onScoreDetected(detected);
@@ -80,12 +120,10 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         } else if (!isAuto) {
           setShowConfirm(true);
         } else if (data.confidence && data.confidence <= 0.8) {
-          // Confiance basse en auto - afficher pour confirmation
           setShowConfirm(true);
           setAutoCapture(false);
         }
 
-        // Reset status après 2s
         setTimeout(() => setCaptureStatus('idle'), 2000);
       } else {
         setCaptureStatus('error');
@@ -97,6 +135,15 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
     } catch (err) {
       console.error('Erreur capture Twitch:', err);
       setCaptureStatus('error');
+
+      // Si erreur de capture, le stream est probablement hors ligne
+      if (err.message.includes('hors ligne') || err.message.includes('timeout')) {
+        setTwitchIsLive(false);
+        if (autoCapture) {
+          setAutoCapture(false); // Pause l'auto si le stream est hors ligne
+        }
+      }
+
       if (!isAuto) {
         setError(err.message);
       }
@@ -196,10 +243,8 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
     originalDetected.score2 !== detectedScores.score2
   );
 
-  // Calcul du pourcentage pour la barre de progression
   const progressPercent = autoCapture ? ((CAPTURE_INTERVAL - nextCaptureIn) / CAPTURE_INTERVAL) * 100 : 0;
 
-  // Couleur de confiance
   const getConfidenceColor = (conf) => {
     if (conf >= 0.8) return 'bg-green-500';
     if (conf >= 0.6) return 'bg-yellow-500';
@@ -208,33 +253,58 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
 
   return (
     <div className="bg-gray-700 rounded-lg p-4">
-      {/* Header compact */}
+      {/* Header avec statut Twitch */}
       <div className="flex justify-between items-center mb-3">
         <h4 className="font-bold text-purple-400 text-sm">
           📺 OCR Twitch
         </h4>
         <div className="flex items-center gap-2">
+          {/* Statut du stream Twitch */}
           {twitchChannel && (
-            <span className="text-xs text-gray-500">@{twitchChannel}</span>
+            <div className="flex items-center gap-1">
+              {twitchIsLive === null ? (
+                <span className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" title="Vérification..." />
+              ) : twitchIsLive ? (
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" title="Stream en ligne" />
+              ) : (
+                <span className="w-2 h-2 bg-red-400 rounded-full" title="Stream hors ligne" />
+              )}
+              <span className="text-xs text-gray-500">@{twitchChannel}</span>
+            </div>
           )}
           {captureStatus === 'capturing' && (
             <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
           )}
-          {captureStatus === 'success' && (
-            <span className="w-2 h-2 bg-green-400 rounded-full" />
-          )}
-          {captureStatus === 'error' && (
-            <span className="w-2 h-2 bg-red-400 rounded-full" />
-          )}
         </div>
       </div>
+
+      {/* Alerte si stream hors ligne */}
+      {twitchIsLive === false && (
+        <div className="mb-3 p-2 bg-red-900/30 border border-red-600/50 rounded-lg">
+          <p className="text-xs text-red-300">
+            ⚠️ Stream hors ligne! Le joueur doit lancer son stream Xbox → Twitch
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Xbox: Bouton Xbox → Capturer → Diffusion en direct → Twitch
+          </p>
+        </div>
+      )}
+
+      {/* Notification stream en ligne */}
+      {twitchIsLive === true && !autoCapture && lastScore.score1 === null && (
+        <div className="mb-3 p-2 bg-green-900/30 border border-green-600/50 rounded-lg">
+          <p className="text-xs text-green-300">
+            ✅ Stream détecté! Active l'OCR automatique pour lire les scores.
+          </p>
+        </div>
+      )}
 
       {/* Mode Auto avec barre de progression */}
       <div className="mb-3 p-3 bg-gray-800 rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className={`text-sm font-medium ${autoCapture ? 'text-green-400' : 'text-gray-400'}`}>
-              {autoCapture ? '🔄 Auto activé' : '⏸️ Auto désactivé'}
+              {autoCapture ? '🔄 OCR actif' : '⏸️ OCR inactif'}
             </span>
             {autoCapture && captureLoading && (
               <span className="text-xs text-yellow-400 animate-pulse">Lecture...</span>
@@ -270,8 +340,8 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
           </div>
         )}
 
-        {/* Dernier score détecté (toujours visible en mode auto) */}
-        {autoCapture && lastScore.score1 !== null && !showConfirm && (
+        {/* Dernier score détecté */}
+        {lastScore.score1 !== null && !showConfirm && (
           <div className="mt-3 pt-3 border-t border-gray-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -297,7 +367,7 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         )}
       </div>
 
-      {/* Bouton capture manuelle (compact) */}
+      {/* Bouton capture manuelle */}
       {!showConfirm && !showIncorrectForm && (
         <div className="space-y-2">
           <button
@@ -331,7 +401,7 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         </div>
       )}
 
-      {/* Formulaire incorrect (compact) */}
+      {/* Formulaire incorrect */}
       {showIncorrectForm && (
         <div className="space-y-2">
           <textarea
@@ -358,10 +428,9 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         </div>
       )}
 
-      {/* Confirmation score (compact) */}
+      {/* Confirmation score */}
       {showConfirm && !showIncorrectForm && (
         <div className="space-y-3">
-          {/* Score avec confiance */}
           <div className="bg-gray-800 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-400">
@@ -440,7 +509,6 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
             </button>
           </div>
 
-          {/* Debug (caché par défaut) */}
           {rawText && (
             <details className="text-xs text-gray-500">
               <summary className="cursor-pointer">Debug</summary>
