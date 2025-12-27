@@ -7,7 +7,7 @@ const router = Router();
 // Inscription
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, xboxGamertag, psnId, eaId, nintendoId, steamName, twitchUsername, streamingConsent } = req.body;
+    const { username, email, password, xboxGamertag, psnId, eaId, nintendoId, steamName, twitchUsername, streamingConsent, streamVisibility } = req.body;
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Tous les champs sont requis' });
@@ -44,7 +44,8 @@ router.post('/register', async (req, res) => {
         nintendoId: nintendoId || null,
         steamName: steamName || null,
         twitchUsername: twitchUsername || null,
-        streamingConsent: streamingConsent || false
+        streamingConsent: streamingConsent || false,
+        streamVisibility: streamVisibility || 'private'
       },
       select: {
         id: true,
@@ -60,6 +61,7 @@ router.post('/register', async (req, res) => {
         steamName: true,
         twitchUsername: true,
         streamingConsent: true,
+        streamVisibility: true,
         createdAt: true
       }
     });

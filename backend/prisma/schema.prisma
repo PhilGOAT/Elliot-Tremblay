@@ -27,6 +27,7 @@ model User {
 
   // Consentement streaming
   streamingConsent Boolean @default(false) // Autorise les autres à voir ses streams
+  streamVisibility String  @default("private") // "private" = admin seulement, "public" = tout le monde
 
   // Statut de vérification des plateformes
   xboxVerified   Boolean   @default(false)
