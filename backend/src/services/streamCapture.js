@@ -1,5 +1,6 @@
 import Tesseract from 'tesseract.js';
 import sharp from 'sharp';
+import { spawn } from 'child_process';
 
 /**
  * Service de capture et analyse de streams pour NHL
@@ -46,6 +47,105 @@ const PATTERNS = {
   // Mises en jeu
   faceoffs: /FACEOFFS?\s*[:=]?\s*(\d{1,3})%?\s*[-–—]\s*(\d{1,3})%?/i
 };
+
+/**
+ * Capture une frame depuis un stream Twitch
+ */
+export async function captureTwitchFrame(channelName) {
+  console.log(`[Twitch] Capture depuis le channel: ${channelName}`);
+
+  return new Promise((resolve, reject) => {
+    // Utiliser streamlink pour obtenir le stream et ffmpeg pour capturer une frame
+    const streamlink = spawn('streamlink', [
+      `https://twitch.tv/${channelName}`,
+      'best',
+      '--stdout'
+    ]);
+
+    const ffmpeg = spawn('ffmpeg', [
+      '-i', 'pipe:0',
+      '-vframes', '1',
+      '-f', 'image2pipe',
+      '-vcodec', 'png',
+      '-y',
+      'pipe:1'
+    ]);
+
+    // Pipe streamlink vers ffmpeg
+    streamlink.stdout.pipe(ffmpeg.stdin);
+
+    const chunks = [];
+
+    ffmpeg.stdout.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+
+    let errorOutput = '';
+    streamlink.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    ffmpeg.on('close', (code) => {
+      streamlink.kill();
+      if (chunks.length > 0) {
+        console.log('[Twitch] Frame capturée avec succès');
+        resolve(Buffer.concat(chunks));
+      } else {
+        reject(new Error(`Pas de frame capturée. Streamlink output: ${errorOutput}`));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      streamlink.kill();
+      reject(err);
+    });
+
+    streamlink.on('error', (err) => {
+      ffmpeg.kill();
+      reject(new Error(`Streamlink error: ${err.message}. Le stream est-il en ligne?`));
+    });
+
+    // Timeout après 15 secondes
+    setTimeout(() => {
+      streamlink.kill();
+      ffmpeg.kill();
+      if (chunks.length > 0) {
+        resolve(Buffer.concat(chunks));
+      } else {
+        reject(new Error('Capture timeout - le stream est peut-être hors ligne'));
+      }
+    }, 15000);
+  });
+}
+
+/**
+ * Capture et analyse le score depuis un stream Twitch
+ */
+export async function analyzeFromTwitch(channelName) {
+  try {
+    console.log(`[OCR] Analyse du stream Twitch: ${channelName}`);
+
+    // Capturer une frame
+    const imageBuffer = await captureTwitchFrame(channelName);
+
+    // Analyser l'image
+    const gameState = await analyzeScreenshot(imageBuffer);
+
+    return {
+      success: true,
+      ...gameState,
+      channel: channelName,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('[OCR] Erreur analyse Twitch:', error.message);
+    return {
+      success: false,
+      error: error.message,
+      channel: channelName
+    };
+  }
+}
 
 /**
  * Analyse une image de screenshot pour extraire les données du match
@@ -284,6 +384,8 @@ export default {
   detectScreenType,
   detectGoal,
   captureStreamFrame,
+  captureTwitchFrame,
+  analyzeFromTwitch,
   NHL_REGIONS,
   PATTERNS
 };

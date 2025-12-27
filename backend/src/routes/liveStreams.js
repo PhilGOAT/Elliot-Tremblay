@@ -212,6 +212,104 @@ router.post('/:id/screenshot', upload.single('screenshot'), async (req, res) => 
 });
 
 /**
+ * POST /live-streams/:id/capture-twitch
+ * Capture et analyse automatique du score depuis le stream Twitch
+ */
+router.post('/:id/capture-twitch', async (req, res) => {
+  try {
+    const stream = await prisma.liveStream.findUnique({
+      where: { id: req.params.id }
+    });
+
+    if (!stream) {
+      return res.status(404).json({ error: 'Stream non trouvé' });
+    }
+
+    // Extraire le channel Twitch depuis l'URL
+    const twitchMatch = stream.streamUrl?.match(/twitch\.tv\/([a-zA-Z0-9_]+)/);
+    const channelName = req.body.channel || (twitchMatch ? twitchMatch[1] : null);
+
+    if (!channelName) {
+      return res.status(400).json({
+        error: 'Aucun channel Twitch trouvé. Ajoute l\'URL Twitch au stream ou fournis le nom du channel.'
+      });
+    }
+
+    console.log(`[OCR] Capture depuis Twitch: ${channelName}`);
+
+    // Capturer et analyser depuis Twitch
+    const result = await streamCapture.analyzeFromTwitch(channelName);
+
+    if (!result.success) {
+      return res.status(400).json({
+        error: result.error || 'Impossible de capturer le stream',
+        details: 'Vérifie que le stream est en ligne et que streamlink/ffmpeg sont installés'
+      });
+    }
+
+    // Si des scores ont été détectés, proposer de mettre à jour
+    const response = {
+      success: true,
+      detected: {
+        score1: result.score1,
+        score2: result.score2,
+        period: result.period,
+        time: result.time,
+        screenType: result.screenType
+      },
+      rawText: result.rawText,
+      channel: channelName,
+      timestamp: result.timestamp
+    };
+
+    // Si demandé, mettre à jour automatiquement
+    if (req.body.autoUpdate && (result.score1 !== null || result.score2 !== null)) {
+      const previousState = {
+        score1: stream.currentScore1,
+        score2: stream.currentScore2
+      };
+
+      // Détecter un but
+      const goal = streamCapture.detectGoal(previousState, {
+        score1: result.score1,
+        score2: result.score2
+      });
+
+      if (goal) {
+        await streamManager.recordEvent(req.params.id, {
+          type: 'GOAL',
+          team: goal.team,
+          period: result.period || stream.currentPeriod,
+          time: result.time || stream.currentTime,
+          score1: result.score1,
+          score2: result.score2,
+          description: `But détecté par OCR! Score: ${result.score1} - ${result.score2}`
+        });
+      }
+
+      // Mettre à jour le stream
+      await prisma.liveStream.update({
+        where: { id: req.params.id },
+        data: {
+          currentScore1: result.score1 ?? stream.currentScore1,
+          currentScore2: result.score2 ?? stream.currentScore2,
+          currentPeriod: result.period ?? stream.currentPeriod,
+          currentTime: result.time ?? stream.currentTime
+        }
+      });
+
+      response.updated = true;
+      response.goalDetected = !!goal;
+    }
+
+    res.json(response);
+  } catch (error) {
+    console.error('Erreur capture Twitch:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * POST /live-streams/:id/manual-update
  * Mise à jour manuelle du score (pour les cas où l'OCR ne marche pas)
  */

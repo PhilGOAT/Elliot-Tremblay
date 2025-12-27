@@ -427,8 +427,10 @@ export default function LiveStreamDetail() {
                     {/* OCR Score Detection */}
                     <div className="mt-4 pt-4 border-t border-gray-600">
                       <ScoreOCR
+                        streamId={id}
                         player1Name={stream.player1Name}
                         player2Name={stream.player2Name}
+                        twitchChannel={twitchChannel}
                         onScoreDetected={(scores) => {
                           setManualScore({
                             ...manualScore,

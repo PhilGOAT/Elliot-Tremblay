@@ -1,180 +1,103 @@
 import { useState, useRef } from 'react';
-import Tesseract from 'tesseract.js';
 
-export default function ScoreOCR({ onScoreDetected, player1Name, player2Name }) {
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+export default function ScoreOCR({ streamId, onScoreDetected, player1Name, player2Name, twitchChannel }) {
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [detectedText, setDetectedText] = useState('');
+  const [captureLoading, setCaptureLoading] = useState(false);
   const [detectedScores, setDetectedScores] = useState({ score1: 0, score2: 0 });
   const [showConfirm, setShowConfirm] = useState(false);
-  const fileInputRef = useRef(null);
+  const [error, setError] = useState(null);
+  const [rawText, setRawText] = useState('');
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-      setDetectedText('');
-      setShowConfirm(false);
-    }
-  };
-
-  const analyzeImage = async () => {
-    if (!image) return;
-
-    setLoading(true);
-    setProgress(0);
+  // Capture automatique depuis Twitch
+  const captureFromTwitch = async () => {
+    setCaptureLoading(true);
+    setError(null);
 
     try {
-      const result = await Tesseract.recognize(
-        image,
-        'eng', // On utilise l'anglais car les chiffres sont universels
-        {
-          logger: (m) => {
-            if (m.status === 'recognizing text') {
-              setProgress(Math.round(m.progress * 100));
-            }
-          }
-        }
-      );
+      const response = await fetch(`${API_URL}/api/live-streams/${streamId}/capture-twitch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: twitchChannel,
+          autoUpdate: false // On veut d'abord voir le résultat
+        })
+      });
 
-      const text = result.data.text;
-      setDetectedText(text);
+      const data = await response.json();
 
-      // Essayer de trouver les scores dans le texte
-      const scores = extractScores(text);
-      setDetectedScores(scores);
-      setShowConfirm(true);
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur de capture');
+      }
 
-    } catch (error) {
-      console.error('Erreur OCR:', error);
-      alert('Erreur lors de l\'analyse. Essaie avec une image plus claire.');
+      if (data.success) {
+        setDetectedScores({
+          score1: data.detected.score1 ?? 0,
+          score2: data.detected.score2 ?? 0
+        });
+        setRawText(data.rawText || '');
+        setShowConfirm(true);
+      } else {
+        throw new Error('Aucun score détecté');
+      }
+    } catch (err) {
+      console.error('Erreur capture Twitch:', err);
+      setError(err.message);
     } finally {
-      setLoading(false);
+      setCaptureLoading(false);
     }
   };
 
-  // Fonction pour extraire les scores du texte OCR
-  const extractScores = (text) => {
-    // Nettoyer le texte
-    const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
-
-    // Patterns communs pour les scores
-    // Format: "3 - 2", "3-2", "3 2", etc.
-    const patterns = [
-      /(\d{1,2})\s*[-:]\s*(\d{1,2})/,  // 3-2, 3:2, 3 - 2
-      /(\d{1,2})\s+(\d{1,2})/,          // 3 2
-    ];
-
-    for (const pattern of patterns) {
-      const match = cleanText.match(pattern);
-      if (match) {
-        const score1 = parseInt(match[1]);
-        const score2 = parseInt(match[2]);
-        // Vérifier que les scores sont raisonnables (0-20)
-        if (score1 >= 0 && score1 <= 20 && score2 >= 0 && score2 <= 20) {
-          return { score1, score2 };
-        }
-      }
-    }
-
-    // Si aucun pattern trouvé, chercher juste des chiffres isolés
-    const numbers = cleanText.match(/\b(\d{1,2})\b/g);
-    if (numbers && numbers.length >= 2) {
-      const score1 = parseInt(numbers[0]);
-      const score2 = parseInt(numbers[1]);
-      if (score1 >= 0 && score1 <= 20 && score2 >= 0 && score2 <= 20) {
-        return { score1, score2 };
-      }
-    }
-
-    return { score1: 0, score2: 0 };
-  };
-
+  // Confirmer et mettre à jour le score
   const confirmScore = () => {
     if (onScoreDetected) {
       onScoreDetected(detectedScores);
     }
-    // Reset
-    setImage(null);
-    setImagePreview(null);
     setShowConfirm(false);
-    setDetectedText('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setRawText('');
   };
 
   return (
     <div className="bg-gray-700 rounded-lg p-4">
       <h4 className="font-bold text-purple-400 mb-3">
-        📸 Lire le score depuis une image
+        📺 Lire le score depuis Twitch
       </h4>
 
-      {/* Upload zone */}
-      <div className="mb-4">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-          id="score-image-upload"
-        />
-        <label
-          htmlFor="score-image-upload"
-          className="block w-full p-4 border-2 border-dashed border-gray-500 rounded-lg text-center cursor-pointer hover:border-purple-500 transition-colors"
-        >
-          {imagePreview ? (
-            <img
-              src={imagePreview}
-              alt="Screenshot"
-              className="max-h-48 mx-auto rounded"
-            />
-          ) : (
-            <div>
-              <div className="text-3xl mb-2">📷</div>
-              <p className="text-gray-400">
-                Clique ou glisse une capture d'écran du score
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Prends un screenshot du score à l'écran
+      {/* Bouton capture automatique */}
+      {!showConfirm && (
+        <div className="space-y-3">
+          <button
+            onClick={captureFromTwitch}
+            disabled={captureLoading}
+            className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 py-3 rounded-lg font-bold flex items-center justify-center gap-2"
+          >
+            {captureLoading ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                Capture en cours...
+              </>
+            ) : (
+              <>
+                📸 Capturer le score depuis Twitch
+              </>
+            )}
+          </button>
+
+          <p className="text-xs text-gray-400 text-center">
+            Le système va capturer une image du stream et lire le score automatiquement
+          </p>
+
+          {error && (
+            <div className="bg-red-900/50 border border-red-600 rounded-lg p-3 text-sm">
+              <p className="text-red-400 font-bold">Erreur:</p>
+              <p className="text-red-300">{error}</p>
+              <p className="text-xs text-gray-400 mt-2">
+                Vérifie que le stream est en ligne. Si le problème persiste,
+                utilise la mise à jour manuelle.
               </p>
             </div>
           )}
-        </label>
-      </div>
-
-      {/* Bouton analyser */}
-      {imagePreview && !showConfirm && (
-        <button
-          onClick={analyzeImage}
-          disabled={loading}
-          className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 py-3 rounded-lg font-bold mb-3"
-        >
-          {loading ? (
-            <span>
-              Analyse en cours... {progress}%
-            </span>
-          ) : (
-            '🔍 Analyser l\'image'
-          )}
-        </button>
-      )}
-
-      {/* Barre de progression */}
-      {loading && (
-        <div className="w-full bg-gray-600 rounded-full h-2 mb-3">
-          <div
-            className="bg-purple-500 h-2 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
         </div>
       )}
 
@@ -182,11 +105,11 @@ export default function ScoreOCR({ onScoreDetected, player1Name, player2Name }) 
       {showConfirm && (
         <div className="space-y-3">
           {/* Texte détecté (debug) */}
-          {detectedText && (
+          {rawText && (
             <details className="text-xs text-gray-500">
               <summary className="cursor-pointer">Texte détecté (debug)</summary>
               <pre className="mt-2 p-2 bg-gray-800 rounded text-xs overflow-auto max-h-20">
-                {detectedText}
+                {rawText}
               </pre>
             </details>
           )}
@@ -228,9 +151,7 @@ export default function ScoreOCR({ onScoreDetected, player1Name, player2Name }) 
             <button
               onClick={() => {
                 setShowConfirm(false);
-                setImagePreview(null);
-                setImage(null);
-                if (fileInputRef.current) fileInputRef.current.value = '';
+                setRawText('');
               }}
               className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded-lg"
             >
