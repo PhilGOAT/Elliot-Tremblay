@@ -4,16 +4,12 @@ import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-// Canal Twitch principal du site - les utilisateurs peuvent streamer ici
-const SITE_TWITCH_CHANNEL = 'mrphilippetremblay';
-
 export default function LiveStreams() {
   const { user } = useAuth();
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
-  const [showMainStream, setShowMainStream] = useState(true);
   const [newStream, setNewStream] = useState({
     title: '',
     game: 'NHL',
@@ -159,60 +155,6 @@ export default function LiveStreams() {
               </button>
             )}
           </div>
-        </div>
-
-        {/* Stream Twitch Principal du Site */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-purple-400">
-              📺 Stream Principal
-            </h2>
-            <button
-              onClick={() => setShowMainStream(!showMainStream)}
-              className="text-sm text-gray-400 hover:text-white"
-            >
-              {showMainStream ? '▼ Masquer' : '▶ Afficher'}
-            </button>
-          </div>
-
-          {showMainStream && (
-            <div className="bg-gray-800 rounded-xl overflow-hidden border border-purple-600/30">
-              <div className="aspect-video">
-                <iframe
-                  src={`https://player.twitch.tv/?channel=${SITE_TWITCH_CHANNEL}&parent=${window.location.hostname}&muted=true`}
-                  height="100%"
-                  width="100%"
-                  allowFullScreen
-                  className="w-full h-full"
-                />
-              </div>
-              <div className="p-4 bg-gray-800/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-400 font-bold">twitch.tv/{SITE_TWITCH_CHANNEL}</p>
-                    <p className="text-gray-400 text-sm">
-                      Canal officiel - Regarde les matchs en direct ici!
-                    </p>
-                  </div>
-                  <a
-                    href={`https://twitch.tv/${SITE_TWITCH_CHANNEL}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm"
-                  >
-                    Ouvrir sur Twitch
-                  </a>
-                </div>
-                {user && (
-                  <div className="mt-3 pt-3 border-t border-gray-700">
-                    <p className="text-xs text-gray-500">
-                      💡 Tu veux streamer ici? Contacte l'admin pour obtenir la clé de stream!
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Aucun stream */}
