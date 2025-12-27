@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function ScoreOCR({ streamId, onScoreDetected, player1Name, player2Name, twitchChannel, game }) {
   const [captureLoading, setCaptureLoading] = useState(false);
   const [detectedScores, setDetectedScores] = useState({ score1: 0, score2: 0 });
-  const [originalDetected, setOriginalDetected] = useState(null); // Pour comparer avec correction
+  const [originalDetected, setOriginalDetected] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState(null);
   const [rawText, setRawText] = useState('');
@@ -13,11 +13,27 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
   const [showIncorrectForm, setShowIncorrectForm] = useState(false);
   const [incorrectNote, setIncorrectNote] = useState('');
 
+  // Auto-capture
+  const [autoCapture, setAutoCapture] = useState(false);
+  const [nextCaptureIn, setNextCaptureIn] = useState(30);
+  const [lastCaptureTime, setLastCaptureTime] = useState(null);
+  const [captureCount, setCaptureCount] = useState(0);
+  const intervalRef = useRef(null);
+  const countdownRef = useRef(null);
+
+  // Intervalle de capture automatique (en secondes)
+  const CAPTURE_INTERVAL = 30;
+
   // Capture automatique depuis Twitch
-  const captureFromTwitch = async () => {
+  const captureFromTwitch = async (isAuto = false) => {
+    if (!twitchChannel) {
+      setError('Aucun canal Twitch configuré');
+      return;
+    }
+
     setCaptureLoading(true);
     setError(null);
-    setFeedbackSent(false);
+    if (!isAuto) setFeedbackSent(false);
 
     try {
       const response = await fetch(`${API_URL}/api/live-streams/${streamId}/capture-twitch`, {
@@ -25,7 +41,7 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channel: twitchChannel,
-          autoUpdate: false
+          autoUpdate: isAuto // Si auto, mettre à jour directement
         })
       });
 
@@ -42,24 +58,77 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
           period: data.detected.period,
           time: data.detected.time
         };
+
         setDetectedScores(detected);
-        setOriginalDetected(detected); // Sauvegarder l'original pour comparaison
+        setOriginalDetected(detected);
         setRawText(data.rawText || '');
-        setShowConfirm(true);
+        setLastCaptureTime(new Date());
+        setCaptureCount(prev => prev + 1);
+
+        // En mode auto, appliquer directement si confiance élevée
+        if (isAuto && data.confidence && data.confidence > 0.8) {
+          // Appliquer automatiquement
+          if (onScoreDetected) {
+            onScoreDetected(detected);
+          }
+        } else if (!isAuto) {
+          // En mode manuel, afficher la confirmation
+          setShowConfirm(true);
+        } else {
+          // En mode auto mais confiance basse, afficher pour confirmation
+          setShowConfirm(true);
+          setAutoCapture(false); // Pause l'auto pour permettre correction
+        }
       } else {
-        throw new Error('Aucun score détecté');
+        if (!isAuto) {
+          throw new Error('Aucun score détecté');
+        }
       }
     } catch (err) {
       console.error('Erreur capture Twitch:', err);
-      setError(err.message);
+      if (!isAuto) {
+        setError(err.message);
+      }
     } finally {
       setCaptureLoading(false);
     }
   };
 
+  // Gestion de l'auto-capture
+  useEffect(() => {
+    if (autoCapture && twitchChannel) {
+      // Capture immédiate au démarrage
+      captureFromTwitch(true);
+
+      // Countdown timer
+      countdownRef.current = setInterval(() => {
+        setNextCaptureIn(prev => {
+          if (prev <= 1) {
+            return CAPTURE_INTERVAL;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Capture à intervalles réguliers
+      intervalRef.current = setInterval(() => {
+        captureFromTwitch(true);
+        setNextCaptureIn(CAPTURE_INTERVAL);
+      }, CAPTURE_INTERVAL * 1000);
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+      };
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      setNextCaptureIn(CAPTURE_INTERVAL);
+    }
+  }, [autoCapture, twitchChannel]);
+
   // Confirmer et mettre à jour le score + envoyer feedback
   const confirmScore = async () => {
-    // Envoyer le feedback d'apprentissage
     try {
       await fetch(`${API_URL}/api/live-streams/${streamId}/ocr-feedback`, {
         method: 'POST',
@@ -77,12 +146,10 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
       console.error('Erreur envoi feedback:', err);
     }
 
-    // Appeler le callback parent
     if (onScoreDetected) {
       onScoreDetected(detectedScores);
     }
 
-    // Reset
     setTimeout(() => {
       setShowConfirm(false);
       setRawText('');
@@ -117,7 +184,6 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
     }
   };
 
-  // Vérifier si l'utilisateur a fait des corrections
   const hasCorrections = originalDetected && (
     originalDetected.score1 !== detectedScores.score1 ||
     originalDetected.score2 !== detectedScores.score2
@@ -125,16 +191,65 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
 
   return (
     <div className="bg-gray-700 rounded-lg p-4">
-      <h4 className="font-bold text-purple-400 mb-3">
-        📺 Lire le score depuis Twitch
-      </h4>
+      <div className="flex justify-between items-center mb-3">
+        <h4 className="font-bold text-purple-400">
+          📺 Lecture OCR depuis Twitch
+        </h4>
+        {twitchChannel && (
+          <span className="text-xs text-gray-400">
+            @{twitchChannel}
+          </span>
+        )}
+      </div>
 
-      {/* Bouton capture automatique */}
+      {/* Toggle Auto-capture */}
+      <div className="mb-4 p-3 bg-gray-800 rounded-lg">
+        <label className="flex items-center justify-between cursor-pointer">
+          <div>
+            <span className="font-medium text-sm">
+              🔄 Capture automatique
+            </span>
+            <p className="text-xs text-gray-400">
+              Lit le score toutes les {CAPTURE_INTERVAL}s
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {autoCapture && (
+              <span className="text-xs text-green-400">
+                {captureLoading ? '⏳' : `${nextCaptureIn}s`}
+              </span>
+            )}
+            <div
+              onClick={() => setAutoCapture(!autoCapture)}
+              className={`w-12 h-6 rounded-full transition-colors relative ${
+                autoCapture ? 'bg-green-600' : 'bg-gray-600'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${
+                  autoCapture ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
+            </div>
+          </div>
+        </label>
+
+        {autoCapture && (
+          <div className="mt-2 pt-2 border-t border-gray-700 flex justify-between text-xs text-gray-400">
+            <span>Captures: {captureCount}</span>
+            {lastCaptureTime && (
+              <span>Dernière: {lastCaptureTime.toLocaleTimeString()}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bouton capture manuelle */}
       {!showConfirm && !showIncorrectForm && (
         <div className="space-y-3">
           <button
-            onClick={captureFromTwitch}
-            disabled={captureLoading}
+            onClick={() => captureFromTwitch(false)}
+            disabled={captureLoading || !twitchChannel}
             className="w-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 py-3 rounded-lg font-bold flex items-center justify-center gap-2"
           >
             {captureLoading ? (
@@ -142,10 +257,10 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
                 <span className="animate-spin">⏳</span>
                 Capture en cours...
               </>
+            ) : !twitchChannel ? (
+              <>❌ Pas de canal Twitch</>
             ) : (
-              <>
-                📸 Capturer le score depuis Twitch
-              </>
+              <>📸 Capturer maintenant</>
             )}
           </button>
 
@@ -192,7 +307,6 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
       {/* Résultat et confirmation */}
       {showConfirm && !showIncorrectForm && (
         <div className="space-y-3">
-          {/* Texte détecté (debug) */}
           {rawText && (
             <details className="text-xs text-gray-500">
               <summary className="cursor-pointer">Texte détecté (debug)</summary>
@@ -202,7 +316,6 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
             </details>
           )}
 
-          {/* Score détecté */}
           <div className="bg-gray-800 rounded-lg p-4">
             <p className="text-sm text-gray-400 text-center mb-2">
               Score détecté {hasCorrections && <span className="text-yellow-400">(modifié)</span>}:
@@ -240,7 +353,6 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
             </p>
           </div>
 
-          {/* Feedback envoyé */}
           {feedbackSent && (
             <div className="bg-green-900/50 border border-green-600 rounded-lg p-2 text-center text-sm text-green-400">
               ✅ {hasCorrections ? 'Correction enregistrée!' : 'Apprentissage enregistré!'}
@@ -260,6 +372,7 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
                 setShowConfirm(false);
                 setRawText('');
                 setOriginalDetected(null);
+                if (autoCapture) setAutoCapture(true); // Reprendre l'auto
               }}
               className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded-lg"
             >

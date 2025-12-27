@@ -248,23 +248,53 @@ router.post('/:id/capture-twitch', async (req, res) => {
       });
     }
 
-    // Si des scores ont été détectés, proposer de mettre à jour
+    // Utiliser le système d'apprentissage pour améliorer les résultats
+    const detected = {
+      score1: result.score1,
+      score2: result.score2,
+      period: result.period,
+      time: result.time,
+      confidence: 0.5 // Confiance de base
+    };
+
+    // Améliorer avec les patterns appris
+    const enhanced = await ocrLearning.enhanceOcrResults(stream.game, result.rawText, detected);
+
+    // Calculer la confiance basée sur la cohérence des données
+    let confidence = enhanced.confidence || 0.5;
+
+    // Bonus de confiance si les scores sont des nombres valides
+    if (enhanced.score1 !== null && enhanced.score2 !== null &&
+        enhanced.score1 >= 0 && enhanced.score1 <= 20 &&
+        enhanced.score2 >= 0 && enhanced.score2 <= 20) {
+      confidence += 0.2;
+    }
+
+    // Bonus si on détecte une période valide
+    if (enhanced.period && enhanced.period >= 1 && enhanced.period <= 5) {
+      confidence += 0.1;
+    }
+
+    confidence = Math.min(1.0, confidence);
+
     const response = {
       success: true,
       detected: {
-        score1: result.score1,
-        score2: result.score2,
-        period: result.period,
-        time: result.time,
+        score1: enhanced.score1,
+        score2: enhanced.score2,
+        period: enhanced.period,
+        time: enhanced.time,
         screenType: result.screenType
       },
+      confidence,
+      enhancedByLearning: enhanced.enhancedByLearning || false,
       rawText: result.rawText,
       channel: channelName,
       timestamp: result.timestamp
     };
 
-    // Si demandé, mettre à jour automatiquement
-    if (req.body.autoUpdate && (result.score1 !== null || result.score2 !== null)) {
+    // Si demandé, mettre à jour automatiquement (seulement si confiance élevée)
+    if (req.body.autoUpdate && confidence >= 0.8 && (enhanced.score1 !== null || enhanced.score2 !== null)) {
       const previousState = {
         score1: stream.currentScore1,
         score2: stream.currentScore2
@@ -272,19 +302,19 @@ router.post('/:id/capture-twitch', async (req, res) => {
 
       // Détecter un but
       const goal = streamCapture.detectGoal(previousState, {
-        score1: result.score1,
-        score2: result.score2
+        score1: enhanced.score1,
+        score2: enhanced.score2
       });
 
       if (goal) {
         await streamManager.recordEvent(req.params.id, {
           type: 'GOAL',
           team: goal.team,
-          period: result.period || stream.currentPeriod,
-          time: result.time || stream.currentTime,
-          score1: result.score1,
-          score2: result.score2,
-          description: `But détecté par OCR! Score: ${result.score1} - ${result.score2}`
+          period: enhanced.period || stream.currentPeriod,
+          time: enhanced.time || stream.currentTime,
+          score1: enhanced.score1,
+          score2: enhanced.score2,
+          description: `But détecté par OCR! Score: ${enhanced.score1} - ${enhanced.score2}`
         });
       }
 
@@ -292,10 +322,10 @@ router.post('/:id/capture-twitch', async (req, res) => {
       await prisma.liveStream.update({
         where: { id: req.params.id },
         data: {
-          currentScore1: result.score1 ?? stream.currentScore1,
-          currentScore2: result.score2 ?? stream.currentScore2,
-          currentPeriod: result.period ?? stream.currentPeriod,
-          currentTime: result.time ?? stream.currentTime
+          currentScore1: enhanced.score1 ?? stream.currentScore1,
+          currentScore2: enhanced.score2 ?? stream.currentScore2,
+          currentPeriod: enhanced.period ?? stream.currentPeriod,
+          currentTime: enhanced.time ?? stream.currentTime
         }
       });
 
