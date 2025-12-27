@@ -152,10 +152,11 @@ export default function Register() {
               />
               <div>
                 <span className="text-sm text-gray-200">
-                  📺 J'accepte de streamer mes parties sur le canal privé du site
+                  📺 J'accepte de streamer mes parties en privé pour les paris
                 </span>
                 <p className="text-xs text-gray-400 mt-1">
-                  Tu devras streamer sur le canal Twitch du site pour que tes matchs soient suivis.
+                  Tu dois streamer ton gameplay Xbox sur le canal privé du site (même sans compte Twitch).
+                  Seul l'admin peut voir pour entrer les scores.
                 </p>
               </div>
             </label>
@@ -166,13 +167,17 @@ export default function Register() {
                   <strong className="text-purple-400">📺 Comment ça marche:</strong>
                 </p>
                 <ol className="text-xs text-gray-500 list-decimal list-inside space-y-1">
-                  <li>Quand tu joues, tu stream sur le canal du site</li>
-                  <li>L'admin te donnera la clé de stream</li>
-                  <li>Seul l'admin voit ton stream (privé)</li>
+                  <li>Tu stream ton gameplay Xbox vers le canal privé du site</li>
+                  <li>L'admin te donnera la clé de stream (pas besoin d'avoir Twitch)</li>
+                  <li>Tu peux utiliser Xbox Game Bar ou OBS pour streamer</li>
+                  <li>Seul l'admin voit ton stream - tes amis ne peuvent PAS voir</li>
                   <li>L'admin entre les scores pour les paris</li>
                 </ol>
                 <p className="text-xs text-gray-500 mt-2">
-                  💡 Tu veux que tes amis regardent aussi? Lance ton propre stream Twitch public en plus!
+                  🔒 <strong>100% Privé</strong> - Personne d'autre que l'admin ne peut voir ton gameplay.
+                </p>
+                <p className="text-xs text-gray-500">
+                  💡 Tu veux que tes amis regardent? Lance ton propre stream Twitch séparé!
                 </p>
               </div>
             )}
