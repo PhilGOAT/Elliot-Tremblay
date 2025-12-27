@@ -1,19 +1,23 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export default function ScoreOCR({ streamId, onScoreDetected, player1Name, player2Name, twitchChannel }) {
-  const [loading, setLoading] = useState(false);
+export default function ScoreOCR({ streamId, onScoreDetected, player1Name, player2Name, twitchChannel, game }) {
   const [captureLoading, setCaptureLoading] = useState(false);
   const [detectedScores, setDetectedScores] = useState({ score1: 0, score2: 0 });
+  const [originalDetected, setOriginalDetected] = useState(null); // Pour comparer avec correction
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState(null);
   const [rawText, setRawText] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [showIncorrectForm, setShowIncorrectForm] = useState(false);
+  const [incorrectNote, setIncorrectNote] = useState('');
 
   // Capture automatique depuis Twitch
   const captureFromTwitch = async () => {
     setCaptureLoading(true);
     setError(null);
+    setFeedbackSent(false);
 
     try {
       const response = await fetch(`${API_URL}/api/live-streams/${streamId}/capture-twitch`, {
@@ -21,7 +25,7 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channel: twitchChannel,
-          autoUpdate: false // On veut d'abord voir le résultat
+          autoUpdate: false
         })
       });
 
@@ -32,10 +36,14 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
       }
 
       if (data.success) {
-        setDetectedScores({
+        const detected = {
           score1: data.detected.score1 ?? 0,
-          score2: data.detected.score2 ?? 0
-        });
+          score2: data.detected.score2 ?? 0,
+          period: data.detected.period,
+          time: data.detected.time
+        };
+        setDetectedScores(detected);
+        setOriginalDetected(detected); // Sauvegarder l'original pour comparaison
         setRawText(data.rawText || '');
         setShowConfirm(true);
       } else {
@@ -49,14 +57,71 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
     }
   };
 
-  // Confirmer et mettre à jour le score
-  const confirmScore = () => {
+  // Confirmer et mettre à jour le score + envoyer feedback
+  const confirmScore = async () => {
+    // Envoyer le feedback d'apprentissage
+    try {
+      await fetch(`${API_URL}/api/live-streams/${streamId}/ocr-feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          detected: originalDetected,
+          corrected: detectedScores,
+          rawText,
+          twitchChannel,
+          game
+        })
+      });
+      setFeedbackSent(true);
+    } catch (err) {
+      console.error('Erreur envoi feedback:', err);
+    }
+
+    // Appeler le callback parent
     if (onScoreDetected) {
       onScoreDetected(detectedScores);
     }
-    setShowConfirm(false);
-    setRawText('');
+
+    // Reset
+    setTimeout(() => {
+      setShowConfirm(false);
+      setRawText('');
+      setOriginalDetected(null);
+      setFeedbackSent(false);
+    }, 1500);
   };
+
+  // Marquer comme incorrect
+  const markAsIncorrect = async () => {
+    try {
+      await fetch(`${API_URL}/api/live-streams/${streamId}/ocr-incorrect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          detected: originalDetected,
+          rawText,
+          feedbackNote: incorrectNote,
+          twitchChannel,
+          game
+        })
+      });
+
+      setShowIncorrectForm(false);
+      setIncorrectNote('');
+      setShowConfirm(false);
+      setError('Merci! Le système va apprendre de cette erreur.');
+
+      setTimeout(() => setError(null), 3000);
+    } catch (err) {
+      console.error('Erreur marquage incorrect:', err);
+    }
+  };
+
+  // Vérifier si l'utilisateur a fait des corrections
+  const hasCorrections = originalDetected && (
+    originalDetected.score1 !== detectedScores.score1 ||
+    originalDetected.score2 !== detectedScores.score2
+  );
 
   return (
     <div className="bg-gray-700 rounded-lg p-4">
@@ -65,7 +130,7 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
       </h4>
 
       {/* Bouton capture automatique */}
-      {!showConfirm && (
+      {!showConfirm && !showIncorrectForm && (
         <div className="space-y-3">
           <button
             onClick={captureFromTwitch}
@@ -85,24 +150,47 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
           </button>
 
           <p className="text-xs text-gray-400 text-center">
-            Le système va capturer une image du stream et lire le score automatiquement
+            Le système apprend de tes corrections pour s'améliorer!
           </p>
 
           {error && (
-            <div className="bg-red-900/50 border border-red-600 rounded-lg p-3 text-sm">
-              <p className="text-red-400 font-bold">Erreur:</p>
-              <p className="text-red-300">{error}</p>
-              <p className="text-xs text-gray-400 mt-2">
-                Vérifie que le stream est en ligne. Si le problème persiste,
-                utilise la mise à jour manuelle.
-              </p>
+            <div className={`${error.includes('Merci') ? 'bg-green-900/50 border-green-600' : 'bg-red-900/50 border-red-600'} border rounded-lg p-3 text-sm`}>
+              <p className={error.includes('Merci') ? 'text-green-300' : 'text-red-300'}>{error}</p>
             </div>
           )}
         </div>
       )}
 
+      {/* Formulaire "marquer comme incorrect" */}
+      {showIncorrectForm && (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-300">Qu'est-ce qui n'allait pas?</p>
+          <textarea
+            value={incorrectNote}
+            onChange={(e) => setIncorrectNote(e.target.value)}
+            placeholder="Ex: Le score n'était pas visible, mauvaise détection..."
+            className="w-full bg-gray-800 rounded-lg p-3 text-sm"
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowIncorrectForm(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded-lg"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={markAsIncorrect}
+              className="flex-1 bg-red-600 hover:bg-red-500 py-2 rounded-lg font-bold"
+            >
+              Envoyer
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Résultat et confirmation */}
-      {showConfirm && (
+      {showConfirm && !showIncorrectForm && (
         <div className="space-y-3">
           {/* Texte détecté (debug) */}
           {rawText && (
@@ -116,7 +204,9 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
 
           {/* Score détecté */}
           <div className="bg-gray-800 rounded-lg p-4">
-            <p className="text-sm text-gray-400 text-center mb-2">Score détecté:</p>
+            <p className="text-sm text-gray-400 text-center mb-2">
+              Score détecté {hasCorrections && <span className="text-yellow-400">(modifié)</span>}:
+            </p>
             <div className="flex justify-center items-center gap-4 text-2xl font-bold">
               <div className="text-center">
                 <div className="text-sm text-gray-400">{player1Name}</div>
@@ -143,15 +233,33 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
               </div>
             </div>
             <p className="text-xs text-gray-500 text-center mt-2">
-              Corrige si nécessaire avant de confirmer
+              {hasCorrections
+                ? '🧠 Ta correction va aider le système à apprendre!'
+                : 'Corrige si nécessaire avant de confirmer'
+              }
             </p>
           </div>
 
+          {/* Feedback envoyé */}
+          {feedbackSent && (
+            <div className="bg-green-900/50 border border-green-600 rounded-lg p-2 text-center text-sm text-green-400">
+              ✅ {hasCorrections ? 'Correction enregistrée!' : 'Apprentissage enregistré!'}
+            </div>
+          )}
+
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowIncorrectForm(true)}
+              className="bg-red-900/50 hover:bg-red-900 border border-red-600 px-3 py-2 rounded-lg text-sm"
+              title="Marquer comme totalement incorrect"
+            >
+              ❌
+            </button>
             <button
               onClick={() => {
                 setShowConfirm(false);
                 setRawText('');
+                setOriginalDetected(null);
               }}
               className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded-lg"
             >
@@ -159,9 +267,10 @@ export default function ScoreOCR({ streamId, onScoreDetected, player1Name, playe
             </button>
             <button
               onClick={confirmScore}
-              className="flex-1 bg-green-600 hover:bg-green-500 py-2 rounded-lg font-bold"
+              disabled={feedbackSent}
+              className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-800 py-2 rounded-lg font-bold"
             >
-              ✅ Confirmer le score
+              {feedbackSent ? '✅ OK!' : '✅ Confirmer'}
             </button>
           </div>
         </div>

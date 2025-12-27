@@ -431,6 +431,7 @@ export default function LiveStreamDetail() {
                         player1Name={stream.player1Name}
                         player2Name={stream.player2Name}
                         twitchChannel={twitchChannel}
+                        game={stream.game}
                         onScoreDetected={(scores) => {
                           setManualScore({
                             ...manualScore,

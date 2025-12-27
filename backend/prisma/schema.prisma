@@ -340,3 +340,68 @@ enum LiveBetType {
   EXACT_SCORE       // Score exact final
   TEAM_TOTAL        // Total buts d'une équipe
 }
+
+// ==========================================
+// OCR LEARNING / RAG SYSTEM
+// ==========================================
+
+model OcrCorrection {
+  id              String   @id @default(uuid())
+  streamId        String?  // Optionnel - lié à un stream
+  game            GameType // Le jeu (NHL, FIFA, etc.)
+
+  // Ce que l'OCR a détecté
+  rawText         String   // Texte brut détecté par OCR
+  detectedScore1  Int?     // Score 1 détecté
+  detectedScore2  Int?     // Score 2 détecté
+  detectedPeriod  Int?     // Période détectée
+  detectedTime    String?  // Temps détecté
+
+  // Ce que l'utilisateur a corrigé
+  correctedScore1 Int?     // Score 1 corrigé par l'utilisateur
+  correctedScore2 Int?     // Score 2 corrigé par l'utilisateur
+  correctedPeriod Int?     // Période corrigée
+  correctedTime   String?  // Temps corrigé
+
+  // Feedback
+  wasCorrect      Boolean  @default(false) // L'OCR avait-il raison?
+  wasIncorrect    Boolean  @default(false) // Marqué comme erroné par l'utilisateur
+  feedbackNote    String?  // Note optionnelle de l'utilisateur
+
+  // Métadonnées pour le matching
+  imageHash       String?  // Hash de l'image pour trouver des images similaires
+  twitchChannel   String?  // Channel Twitch source
+  screenRegion    String?  // Région de l'écran analysée (scoreboard, fullscreen, etc.)
+
+  // Stats
+  confidence      Float?   // Confiance de l'OCR (0-1)
+  processingTime  Int?     // Temps de traitement en ms
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([game])
+  @@index([rawText])
+  @@index([imageHash])
+}
+
+model OcrPattern {
+  id              String   @id @default(uuid())
+  game            GameType
+
+  // Pattern appris
+  patternType     String   // "score", "time", "period"
+  rawPattern      String   // Le pattern brut (ex: "3 - 2", "14:32")
+  normalizedValue String   // La valeur normalisée
+
+  // Stats d'apprentissage
+  successCount    Int      @default(0) // Nombre de fois correct
+  failureCount    Int      @default(0) // Nombre de fois incorrect
+  confidence      Float    @default(0.5) // Confiance calculée
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([game, patternType, rawPattern])
+  @@index([game, patternType])
+}

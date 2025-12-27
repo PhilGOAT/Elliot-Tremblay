@@ -2,6 +2,7 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import streamManager from '../services/streamManager.js';
 import streamCapture from '../services/streamCapture.js';
+import ocrLearning from '../services/ocrLearning.js';
 import multer from 'multer';
 
 const router = express.Router();
@@ -572,5 +573,92 @@ function calculateOdds(stream, betType, prediction, spreadValue = null, totalVal
   // Arrondir à 2 décimales
   return Math.round(baseCote * 100) / 100;
 }
+
+// ==========================================
+// OCR LEARNING / RAG ENDPOINTS
+// ==========================================
+
+/**
+ * POST /live-streams/:id/ocr-feedback
+ * Enregistre une correction OCR pour l'apprentissage
+ */
+router.post('/:id/ocr-feedback', async (req, res) => {
+  try {
+    const { detected, corrected, rawText, twitchChannel, game } = req.body;
+
+    const stream = await prisma.liveStream.findUnique({
+      where: { id: req.params.id }
+    });
+
+    const correction = await ocrLearning.recordCorrection({
+      streamId: req.params.id,
+      game: game || stream?.game || 'NHL',
+      rawText,
+      detected: detected || {},
+      corrected: corrected || {},
+      twitchChannel
+    });
+
+    res.json({
+      success: true,
+      correctionId: correction.id,
+      wasCorrect: correction.wasCorrect,
+      message: correction.wasCorrect
+        ? 'OCR était correct! Apprentissage enregistré.'
+        : 'Correction enregistrée. Le système va apprendre de cette correction.'
+    });
+  } catch (error) {
+    console.error('Erreur feedback OCR:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /live-streams/:id/ocr-incorrect
+ * Marque un résultat OCR comme incorrect (sans fournir de correction)
+ */
+router.post('/:id/ocr-incorrect', async (req, res) => {
+  try {
+    const { detected, rawText, feedbackNote, twitchChannel, game } = req.body;
+
+    const stream = await prisma.liveStream.findUnique({
+      where: { id: req.params.id }
+    });
+
+    const correction = await ocrLearning.markAsIncorrect({
+      streamId: req.params.id,
+      game: game || stream?.game || 'NHL',
+      rawText,
+      detected: detected || {},
+      feedbackNote,
+      twitchChannel
+    });
+
+    res.json({
+      success: true,
+      correctionId: correction.id,
+      message: 'Merci pour le feedback! Le système va éviter ce pattern à l\'avenir.'
+    });
+  } catch (error) {
+    console.error('Erreur marquage incorrect:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /live-streams/ocr-stats
+ * Obtient les statistiques d'apprentissage OCR
+ */
+router.get('/ocr-stats', async (req, res) => {
+  try {
+    const { game } = req.query;
+    const stats = await ocrLearning.getLearningStats(game);
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Erreur stats OCR:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;
