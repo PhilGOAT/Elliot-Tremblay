@@ -141,7 +141,7 @@ export default function Register() {
             )}
           </div>
 
-          {/* Consentement streaming */}
+          {/* Consentement streaming automatique */}
           <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-4 border border-purple-600/30">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -151,33 +151,37 @@ export default function Register() {
                 className="mt-1 w-5 h-5 rounded border-gray-600 bg-gray-700 text-xbox-green focus:ring-xbox-green"
               />
               <div>
-                <span className="text-sm text-gray-200">
-                  📺 J'accepte de streamer mes parties en privé pour les paris
+                <span className="text-sm text-gray-200 font-medium">
+                  📺 Activer le streaming automatique quand je joue
                 </span>
                 <p className="text-xs text-gray-400 mt-1">
-                  Tu dois streamer ton gameplay Xbox sur le canal privé du site (même sans compte Twitch).
-                  Seul l'admin peut voir pour entrer les scores.
+                  À chaque fois que tu joues sur Xbox, ton Twitch sera connecté automatiquement pour les paris.
                 </p>
               </div>
             </label>
 
             {consent && (
-              <div className="mt-3 pt-3 border-t border-purple-600/20 space-y-2">
-                <p className="text-xs text-gray-400">
-                  <strong className="text-purple-400">📺 Comment ça marche:</strong>
-                </p>
-                <ol className="text-xs text-gray-500 list-decimal list-inside space-y-1">
-                  <li>Tu stream ton gameplay Xbox vers le canal privé du site</li>
-                  <li>L'admin te donnera la clé de stream (pas besoin d'avoir Twitch)</li>
-                  <li>Tu peux utiliser Xbox Game Bar ou OBS pour streamer</li>
-                  <li>Seul l'admin voit ton stream - tes amis ne peuvent PAS voir</li>
-                  <li>L'admin entre les scores pour les paris</li>
-                </ol>
-                <p className="text-xs text-gray-500 mt-2">
-                  🔒 <strong>100% Privé</strong> - Personne d'autre que l'admin ne peut voir ton gameplay.
-                </p>
+              <div className="mt-3 pt-3 border-t border-purple-600/20 space-y-3">
+                <div className="bg-green-900/30 border border-green-600/30 rounded-lg p-3">
+                  <p className="text-sm text-green-400 font-medium">
+                    ✅ Configuration une seule fois:
+                  </p>
+                  <ol className="text-xs text-gray-300 mt-2 space-y-1 list-decimal list-inside">
+                    <li>Lie ton compte Twitch à ta Xbox (une seule fois)</li>
+                    <li>Active "Diffusion auto" dans les paramètres Xbox</li>
+                    <li>C'est tout! Ton stream démarre automatiquement quand tu joues</li>
+                  </ol>
+                </div>
+
+                <div className="text-xs text-gray-400">
+                  <p className="mb-1"><strong className="text-purple-400">Comment activer la diffusion auto:</strong></p>
+                  <p className="text-gray-500">
+                    Xbox: Paramètres → Préférences → Diffusion et capture → "Diffuser automatiquement avec Twitch" → Activé
+                  </p>
+                </div>
+
                 <p className="text-xs text-gray-500">
-                  💡 Tu veux que tes amis regardent? Lance ton propre stream Twitch séparé!
+                  🎮 Une fois configuré, tu n'as plus rien à faire - le système détecte ton stream automatiquement!
                 </p>
               </div>
             )}
