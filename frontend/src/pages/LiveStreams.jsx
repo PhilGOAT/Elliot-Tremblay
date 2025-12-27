@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Canal Twitch principal du site - les utilisateurs peuvent streamer ici
-const SITE_TWITCH_CHANNEL = 'xboxbettingsite';
+const SITE_TWITCH_CHANNEL = 'mrphilippetremblay';
 
 export default function LiveStreams() {
   const { user } = useAuth();
