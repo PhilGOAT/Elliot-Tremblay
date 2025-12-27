@@ -25,7 +25,6 @@ export default function Register() {
     twitchUsername: ''
   });
   const [consent, setConsent] = useState(false);
-  const [streamVisibility, setStreamVisibility] = useState('private'); // 'private' ou 'public'
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -56,7 +55,7 @@ export default function Register() {
       await register(username, email, password, {
         ...gamertags,
         streamingConsent: consent,
-        streamVisibility: consent ? streamVisibility : 'private'
+        streamVisibility: 'private' // Toujours privé - seul l'admin voit
       });
       toast.success('Compte créé! Tu as reçu 1000 coins de départ.');
       navigate('/live');
@@ -153,48 +152,22 @@ export default function Register() {
               />
               <div>
                 <span className="text-sm text-gray-200">
-                  📺 J'accepte que mes parties puissent être diffusées sur Twitch
+                  📺 J'accepte que mes parties soient suivies pour les paris
                 </span>
                 <p className="text-xs text-gray-400 mt-1">
-                  En cochant, tu permets le suivi de tes matchs pour les paris en direct.
+                  Ton gameplay sera visible uniquement par l'admin pour entrer les scores.
                 </p>
               </div>
             </label>
 
-            {/* Options de visibilité - seulement si consent est coché */}
             {consent && (
-              <div className="mt-4 pt-4 border-t border-purple-600/30">
-                <p className="text-sm text-gray-300 mb-3">Qui peut voir ton stream?</p>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-700/50">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value="private"
-                      checked={streamVisibility === 'private'}
-                      onChange={(e) => setStreamVisibility(e.target.value)}
-                      className="w-4 h-4 text-purple-600"
-                    />
-                    <div>
-                      <span className="text-sm text-gray-200">🔒 Privé (recommandé)</span>
-                      <p className="text-xs text-gray-500">Seul l'admin peut voir pour entrer les scores</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-700/50">
-                    <input
-                      type="radio"
-                      name="visibility"
-                      value="public"
-                      checked={streamVisibility === 'public'}
-                      onChange={(e) => setStreamVisibility(e.target.value)}
-                      className="w-4 h-4 text-purple-600"
-                    />
-                    <div>
-                      <span className="text-sm text-gray-200">🌐 Public</span>
-                      <p className="text-xs text-gray-500">Tout le monde peut regarder ton stream</p>
-                    </div>
-                  </label>
-                </div>
+              <div className="mt-3 pt-3 border-t border-purple-600/20">
+                <p className="text-xs text-gray-500">
+                  🔒 <strong>Toujours privé</strong> - Seul l'admin voit ton stream pour les scores.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 Tu veux que tes amis regardent? Lance ton propre stream Twitch public!
+                </p>
               </div>
             )}
           </div>
