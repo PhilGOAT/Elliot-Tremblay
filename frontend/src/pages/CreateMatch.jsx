@@ -51,6 +51,17 @@ export default function CreateMatch() {
     fetchUsers();
   }, []);
 
+  // Auto-sélectionner l'utilisateur connecté comme Joueur 1
+  useEffect(() => {
+    if (user && users.length > 0) {
+      const currentUser = users.find(u => u.id === user.id);
+      if (currentUser) {
+        setPlayer1UserId(user.id);
+        setPlayer1HumanName(user.username);
+      }
+    }
+  }, [user, users]);
+
   // Quand un utilisateur est sélectionné, mettre à jour le nom humain
   const handlePlayer1UserSelect = (userId) => {
     setPlayer1UserId(userId);
@@ -176,13 +187,13 @@ export default function CreateMatch() {
                   <option value="">-- Sélectionner un joueur --</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>
-                      {u.username}
+                      {u.username} {u.id === user?.id ? '(Toi)' : ''}
                     </option>
                   ))}
                 </select>
                 {player1UserId && (
                   <p className="text-sm text-green-400">
-                    ✓ Joueur: {player1HumanName}
+                    ✓ Joueur: {player1HumanName} {player1UserId === user?.id ? '(Toi)' : ''}
                   </p>
                 )}
               </div>
@@ -244,16 +255,18 @@ export default function CreateMatch() {
                   onChange={(e) => handlePlayer2UserSelect(e.target.value)}
                   className="input"
                 >
-                  <option value="">-- Sélectionner un joueur --</option>
-                  {users.map(u => (
+                  <option value="">-- Sélectionner un adversaire --</option>
+                  {users
+                    .filter(u => u.id !== player1UserId) // Exclure le joueur 1
+                    .map(u => (
                     <option key={u.id} value={u.id}>
-                      {u.username}
+                      {u.username} {u.id === user?.id ? '(Toi)' : ''}
                     </option>
                   ))}
                 </select>
                 {player2UserId && (
                   <p className="text-sm text-green-400">
-                    ✓ Joueur: {player2HumanName}
+                    ✓ Adversaire: {player2HumanName}
                   </p>
                 )}
               </div>
