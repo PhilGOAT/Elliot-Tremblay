@@ -9,11 +9,12 @@ export default function LiveStreams() {
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showStreamGuide, setShowStreamGuide] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [newStream, setNewStream] = useState({
     title: '',
     game: 'NHL',
-    streamUrl: '',
+    twitchUsername: '',
     player1Name: '',
     player2Name: ''
   });
@@ -32,10 +33,12 @@ export default function LiveStreams() {
       });
       const data = await response.json();
       setUserProfile(data);
-      // Pré-remplir avec le gamertag Xbox si disponible
-      if (data.xboxGamertag) {
-        setNewStream(prev => ({ ...prev, player1Name: data.xboxGamertag }));
-      }
+      // Pré-remplir avec le gamertag Xbox et Twitch si disponibles
+      setNewStream(prev => ({
+        ...prev,
+        player1Name: data.xboxGamertag || prev.player1Name,
+        twitchUsername: data.twitchUsername || prev.twitchUsername
+      }));
     } catch (error) {
       console.error('Erreur profil:', error);
     }
@@ -65,8 +68,10 @@ export default function LiveStreams() {
     try {
       // Générer le titre automatiquement si vide
       const title = newStream.title || `${newStream.player1Name} vs ${newStream.player2Name}`;
-      // URL stream optionnel
-      const streamUrl = newStream.streamUrl || 'https://twitch.tv';
+      // Construire l'URL Twitch depuis le username
+      const streamUrl = newStream.twitchUsername
+        ? `https://twitch.tv/${newStream.twitchUsername.replace('@', '').trim()}`
+        : '';
 
       const response = await fetch(`${API_URL}/api/live-streams`, {
         method: 'POST',
@@ -84,12 +89,12 @@ export default function LiveStreams() {
         setNewStream({
           title: '',
           game: 'NHL',
-          streamUrl: '',
+          twitchUsername: userProfile?.twitchUsername || '',
           player1Name: userProfile?.xboxGamertag || '',
           player2Name: ''
         });
         fetchStreams();
-        alert('Match annoncé! Tu peux maintenant le démarrer.');
+        alert('Match annoncé! Lance ton stream Twitch et démarre le match quand tu es prêt.');
       } else {
         const error = await response.json();
         alert('Erreur: ' + (error.error || 'Impossible de créer le match'));
@@ -222,7 +227,11 @@ export default function LiveStreams() {
                   </div>
 
                   <div className="flex justify-between text-sm text-gray-400">
-                    <span>👁️ {stream.viewerCount || 0} spectateurs</span>
+                    {stream.streamUrl && stream.streamUrl.includes('twitch.tv') ? (
+                      <span className="text-purple-400">📺 Stream en direct</span>
+                    ) : (
+                      <span>👁️ {stream.viewerCount || 0} spectateurs</span>
+                    )}
                     <span>🎰 {stream._count?.liveBets || 0} paris</span>
                   </div>
                 </Link>
@@ -258,7 +267,12 @@ export default function LiveStreams() {
                     <span>{stream.player2Name}</span>
                   </div>
 
-                  {getStatusBadge(stream.status)}
+                  <div className="flex justify-between items-center">
+                    {getStatusBadge(stream.status)}
+                    {stream.streamUrl && stream.streamUrl.includes('twitch.tv') && (
+                      <span className="text-xs text-purple-400">📺 Stream prêt</span>
+                    )}
+                  </div>
                 </Link>
               ))}
             </div>
@@ -267,14 +281,72 @@ export default function LiveStreams() {
 
         {/* Modal création stream */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md">
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-lg my-8">
               <h2 className="text-2xl font-bold mb-2">🎮 Annoncer un match</h2>
               <p className="text-gray-400 text-sm mb-4">
-                Tes amis pourront parier sur ton match en direct!
+                Stream ton match Xbox sur Twitch pour que tes amis puissent regarder et parier!
               </p>
 
               <form onSubmit={createStream} className="space-y-4">
+                {/* Section Twitch - Mise en avant */}
+                <div className="bg-purple-900/30 border border-purple-600/50 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-bold text-purple-400">
+                      📺 Ton nom Twitch (requis pour le stream)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowStreamGuide(!showStreamGuide)}
+                      className="text-xs text-purple-300 hover:text-purple-200 underline"
+                    >
+                      {showStreamGuide ? 'Masquer le guide' : 'Comment streamer?'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={newStream.twitchUsername}
+                    onChange={(e) => setNewStream({ ...newStream, twitchUsername: e.target.value })}
+                    className="w-full bg-gray-700 rounded-lg p-3 border border-purple-600/30"
+                    placeholder="ton_nom_twitch"
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-2">
+                    Entre ton nom d'utilisateur Twitch (sans le @). Les autres verront ton stream en direct!
+                  </p>
+
+                  {/* Guide de streaming Xbox */}
+                  {showStreamGuide && (
+                    <div className="mt-4 pt-4 border-t border-purple-600/30 space-y-3">
+                      <h4 className="font-bold text-purple-300">🎮 Comment streamer depuis Xbox:</h4>
+                      <ol className="text-xs text-gray-300 space-y-2 list-decimal list-inside">
+                        <li>
+                          <strong>Lie ton compte Twitch à Xbox:</strong>
+                          <br />
+                          <span className="text-gray-400 ml-4">Paramètres → Compte → Comptes liés → Twitch</span>
+                        </li>
+                        <li>
+                          <strong>Lance ton jeu (NHL, Madden, etc.)</strong>
+                        </li>
+                        <li>
+                          <strong>Appuie sur le bouton Xbox → Capturer et partager</strong>
+                        </li>
+                        <li>
+                          <strong>Sélectionne "Diffusion en direct"</strong>
+                        </li>
+                        <li>
+                          <strong>Choisis Twitch et commence à streamer!</strong>
+                        </li>
+                      </ol>
+                      <div className="bg-gray-700/50 rounded p-2 mt-2">
+                        <p className="text-xs text-green-400">
+                          💡 Ton stream sera visible sur twitch.tv/{newStream.twitchUsername || 'ton_nom'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-sm text-gray-400 mb-1">Jeu</label>
                   <select
@@ -294,7 +366,7 @@ export default function LiveStreams() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">
-                      Ton gamertag
+                      Ton gamertag Xbox
                       {userProfile?.xboxGamertag && (
                         <span className="text-green-400 ml-1">✓</span>
                       )}
@@ -304,7 +376,7 @@ export default function LiveStreams() {
                       value={newStream.player1Name}
                       onChange={(e) => setNewStream({ ...newStream, player1Name: e.target.value })}
                       className="w-full bg-gray-700 rounded-lg p-3"
-                      placeholder="Ton gamertag Xbox"
+                      placeholder="Ton gamertag"
                       required
                     />
                   </div>
@@ -322,32 +394,23 @@ export default function LiveStreams() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Titre du match</label>
+                  <label className="block text-sm text-gray-400 mb-1">Titre du match (optionnel)</label>
                   <input
                     type="text"
                     value={newStream.title}
                     onChange={(e) => setNewStream({ ...newStream, title: e.target.value })}
                     className="w-full bg-gray-700 rounded-lg p-3"
-                    placeholder={`${newStream.player1Name || 'Moi'} vs ${newStream.player2Name || 'Adversaire'}`}
+                    placeholder={`${newStream.player1Name || 'Toi'} vs ${newStream.player2Name || 'Adversaire'}`}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Laisse vide pour générer automatiquement
-                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">
-                    URL du stream (optionnel)
-                  </label>
-                  <input
-                    type="url"
-                    value={newStream.streamUrl}
-                    onChange={(e) => setNewStream({ ...newStream, streamUrl: e.target.value })}
-                    className="w-full bg-gray-700 rounded-lg p-3"
-                    placeholder="https://twitch.tv/ton-channel"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Si tu stream, ajoute le lien pour que les gens puissent regarder
+                {/* Résumé */}
+                <div className="bg-gray-700/50 rounded-lg p-3 text-sm">
+                  <p className="text-gray-300">
+                    📺 Stream: <span className="text-purple-400">twitch.tv/{newStream.twitchUsername || '...'}</span>
+                  </p>
+                  <p className="text-gray-300">
+                    🎮 Match: <span className="text-green-400">{newStream.player1Name || '?'} vs {newStream.player2Name || '?'}</span>
                   </p>
                 </div>
 
@@ -362,8 +425,9 @@ export default function LiveStreams() {
                   <button
                     type="submit"
                     className="flex-1 bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold"
+                    disabled={!newStream.twitchUsername}
                   >
-                    🎮 Annoncer le match
+                    🎮 Créer le match
                   </button>
                 </div>
               </form>
