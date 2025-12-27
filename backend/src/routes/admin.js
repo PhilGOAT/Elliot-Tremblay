@@ -1,7 +1,23 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { analyzeScreenshot, analyzeFromTwitch, checkStreamLive } from '../services/streamCapture.js';
+import { getLearningStats, recordCorrection, enhanceOcrResults } from '../services/ocrLearning.js';
+import multer from 'multer';
 
 const router = Router();
+
+// Config multer pour upload d'images
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seules les images sont acceptées'), false);
+    }
+  }
+});
 
 // Middleware pour vérifier si l'utilisateur est admin
 const requireAdmin = async (req, res, next) => {
@@ -118,6 +134,130 @@ router.patch('/users/:id', authenticate, requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+// ============================================
+// ROUTES OCR - Détection de score par image
+// ============================================
+
+// POST /admin/ocr/analyze-twitch - Analyser un stream Twitch en direct
+router.post('/ocr/analyze-twitch', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { channelName } = req.body;
+
+    if (!channelName) {
+      return res.status(400).json({ error: 'Nom du channel Twitch requis' });
+    }
+
+    console.log(`[Admin OCR] Analyse du stream Twitch: ${channelName}`);
+
+    // Vérifier si le stream est en ligne
+    const isLive = await checkStreamLive(channelName);
+    if (!isLive) {
+      return res.json({
+        success: false,
+        error: 'Le stream n\'est pas en ligne',
+        channel: channelName
+      });
+    }
+
+    // Analyser le stream
+    const result = await analyzeFromTwitch(channelName);
+
+    // Améliorer avec l'apprentissage
+    if (result.success && result.rawText) {
+      const enhanced = await enhanceOcrResults('NHL', result.rawText, result);
+      return res.json({
+        ...result,
+        ...enhanced,
+        enhanced: enhanced.enhancedByLearning
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('[Admin OCR] Erreur analyse Twitch:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/ocr/analyze-image - Analyser une image uploadée
+router.post('/ocr/analyze-image', authenticate, requireAdmin, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Image requise' });
+    }
+
+    console.log(`[Admin OCR] Analyse d'image: ${req.file.originalname} (${req.file.size} bytes)`);
+
+    // Analyser l'image
+    const result = await analyzeScreenshot(req.file.buffer);
+
+    if (!result) {
+      return res.json({
+        success: false,
+        error: 'Impossible d\'analyser l\'image'
+      });
+    }
+
+    // Améliorer avec l'apprentissage
+    const enhanced = await enhanceOcrResults('NHL', result.rawText, result);
+
+    res.json({
+      success: true,
+      ...enhanced,
+      filename: req.file.originalname,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Admin OCR] Erreur analyse image:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /admin/ocr/correct - Enregistrer une correction OCR
+router.post('/ocr/correct', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { detected, corrected, rawText, twitchChannel, game } = req.body;
+
+    if (!detected || !corrected) {
+      return res.status(400).json({ error: 'Données détectées et corrigées requises' });
+    }
+
+    const correction = await recordCorrection({
+      streamId: null,
+      game: game || 'NHL',
+      rawText: rawText || '',
+      detected,
+      corrected,
+      twitchChannel
+    });
+
+    res.json({
+      success: true,
+      correctionId: correction.id,
+      wasCorrect: correction.wasCorrect
+    });
+  } catch (error) {
+    console.error('[Admin OCR] Erreur correction:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /admin/ocr/stats - Statistiques d'apprentissage OCR
+router.get('/ocr/stats', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { game } = req.query;
+    const stats = await getLearningStats(game || 'NHL');
+    res.json(stats);
+  } catch (error) {
+    console.error('[Admin OCR] Erreur stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// FONCTIONS HELPER
+// ============================================
 
 // Fonction pour vérifier si un stream Twitch est en ligne
 async function checkTwitchLive(username) {
