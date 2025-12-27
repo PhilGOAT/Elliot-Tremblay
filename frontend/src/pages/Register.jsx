@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const platforms = [
   { key: 'xboxGamertag', label: 'Xbox Live', icon: '🎮', placeholder: 'Gamertag Xbox' },
@@ -23,12 +25,50 @@ export default function Register() {
     steamName: ''
   });
   const [twitchUsername, setTwitchUsername] = useState('');
+  const [twitchVerification, setTwitchVerification] = useState(null); // null, 'checking', {valid, exists, ...}
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const hasAtLeastOneGamertag = Object.values(gamertags).some(v => v.trim() !== '');
+
+  // Vérifier le pseudo Twitch avec debounce
+  const verifyTwitch = useCallback(async (username) => {
+    if (!username || username.trim().length < 4) {
+      setTwitchVerification(null);
+      return;
+    }
+
+    setTwitchVerification('checking');
+
+    try {
+      const response = await fetch(`${API_URL}/api/verify/twitch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim() })
+      });
+
+      const data = await response.json();
+      setTwitchVerification(data);
+    } catch (error) {
+      console.error('Erreur vérification Twitch:', error);
+      setTwitchVerification({ valid: true, error: 'Impossible de vérifier' });
+    }
+  }, []);
+
+  // Debounce la vérification Twitch
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (twitchUsername.trim().length >= 4) {
+        verifyTwitch(twitchUsername);
+      } else {
+        setTwitchVerification(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [twitchUsername, verifyTwitch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,6 +90,12 @@ export default function Register() {
 
     if (!twitchUsername.trim()) {
       toast.error('Entre ton pseudo Twitch pour le streaming!');
+      return;
+    }
+
+    // Vérifier que le Twitch est valide
+    if (twitchVerification && !twitchVerification.valid) {
+      toast.error(twitchVerification.error || 'Ce pseudo Twitch n\'existe pas!');
       return;
     }
 
@@ -157,17 +203,55 @@ export default function Register() {
               <label className="block text-sm text-gray-300 mb-2">
                 Pseudo Twitch
               </label>
-              <input
-                type="text"
-                value={twitchUsername}
-                onChange={(e) => setTwitchUsername(e.target.value)}
-                className="input w-full border-purple-600/50"
-                placeholder="ton_pseudo_twitch"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Ton stream sera visible sur twitch.tv/{twitchUsername || '...'}
-              </p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={twitchUsername}
+                  onChange={(e) => setTwitchUsername(e.target.value)}
+                  className={`input w-full pr-10 ${
+                    twitchVerification === 'checking' ? 'border-yellow-500' :
+                    twitchVerification?.valid && twitchVerification?.exists ? 'border-green-500' :
+                    twitchVerification?.valid === false ? 'border-red-500' :
+                    'border-purple-600/50'
+                  }`}
+                  placeholder="ton_pseudo_twitch"
+                  required
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {twitchVerification === 'checking' && (
+                    <span className="animate-spin">⏳</span>
+                  )}
+                  {twitchVerification?.valid && twitchVerification?.exists && (
+                    <span className="text-green-500" title="Compte Twitch vérifié!">✅</span>
+                  )}
+                  {twitchVerification?.valid === false && (
+                    <span className="text-red-500" title={twitchVerification.error}>❌</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Message de vérification */}
+              {twitchVerification === 'checking' && (
+                <p className="text-xs text-yellow-400 mt-1">Vérification en cours...</p>
+              )}
+              {twitchVerification?.valid && twitchVerification?.exists && (
+                <p className="text-xs text-green-400 mt-1">
+                  ✅ Compte Twitch "{twitchVerification.displayName || twitchVerification.username}" trouvé!
+                </p>
+              )}
+              {twitchVerification?.valid === false && (
+                <p className="text-xs text-red-400 mt-1">
+                  ❌ {twitchVerification.error}
+                </p>
+              )}
+              {!twitchVerification && twitchUsername.length > 0 && twitchUsername.length < 4 && (
+                <p className="text-xs text-gray-500 mt-1">Minimum 4 caractères</p>
+              )}
+              {!twitchVerification && twitchUsername.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Ton stream sera visible sur twitch.tv/...
+                </p>
+              )}
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer">
@@ -210,9 +294,16 @@ export default function Register() {
           <button
             type="submit"
             className="btn-primary w-full"
-            disabled={loading || !hasAtLeastOneGamertag || !consent || !twitchUsername.trim()}
+            disabled={
+              loading ||
+              !hasAtLeastOneGamertag ||
+              !consent ||
+              !twitchUsername.trim() ||
+              twitchVerification === 'checking' ||
+              (twitchVerification && !twitchVerification.valid)
+            }
           >
-            {loading ? 'Création...' : 'Créer mon compte'}
+            {loading ? 'Création...' : twitchVerification === 'checking' ? 'Vérification...' : 'Créer mon compte'}
           </button>
         </form>
 
