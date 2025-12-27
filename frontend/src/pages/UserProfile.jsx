@@ -12,15 +12,32 @@ export default function UserProfile() {
   const [friendStatus, setFriendStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
 
   const getToken = () => localStorage.getItem('token');
 
   useEffect(() => {
     fetchProfile();
+    checkOnlineStatus();
     if (currentUser) {
       checkFriendStatus();
     }
+    // Vérifier le statut en ligne toutes les 30 secondes
+    const interval = setInterval(checkOnlineStatus, 30000);
+    return () => clearInterval(interval);
   }, [id, currentUser]);
+
+  const checkOnlineStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/users/${id}/online`);
+      if (response.ok) {
+        const data = await response.json();
+        setIsOnline(data.isOnline);
+      }
+    } catch (error) {
+      console.error('Erreur check online:', error);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -198,17 +215,34 @@ export default function UserProfile() {
   return (
     <div className="max-w-md mx-auto">
       <div className="card text-center">
-        <div className="w-24 h-24 bg-xbox-green rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden">
-          {profile.xboxAvatar ? (
-            <img src={profile.xboxAvatar} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-4xl font-bold text-white">
-              {profile.username.charAt(0).toUpperCase()}
-            </span>
+        {/* Avatar avec indicateur en ligne */}
+        <div className="relative w-24 h-24 mx-auto mb-4">
+          <div className="w-24 h-24 bg-xbox-green rounded-full flex items-center justify-center overflow-hidden">
+            {profile.xboxAvatar ? (
+              <img src={profile.xboxAvatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-4xl font-bold text-white">
+                {profile.username.charAt(0).toUpperCase()}
+              </span>
+            )}
+          </div>
+          {/* Point vert si en ligne */}
+          {isOnline && (
+            <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-4 border-gray-800 animate-pulse" title="En train de jouer!"></div>
           )}
         </div>
 
         <h1 className="text-2xl font-bold mb-2">{profile.username}</h1>
+
+        {/* Badge "En jeu" si en ligne */}
+        {isOnline && (
+          <div className="mb-4">
+            <span className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-full font-medium animate-pulse">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              🎮 En train de jouer sur Xbox!
+            </span>
+          </div>
+        )}
 
         {/* Gamertags */}
         <div className="flex flex-wrap justify-center gap-2 mb-4">

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { verifyTwitchUsername } from '../services/verification.js';
 
 const router = Router();
 
@@ -175,6 +176,90 @@ router.get('/leaderboard', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+// Vérifier si un utilisateur est en ligne (joue à la Xbox = stream Twitch actif)
+router.get('/:id/online', async (req, res) => {
+  try {
+    const user = await req.prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { twitchUsername: true }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    if (!user.twitchUsername) {
+      return res.json({ isOnline: false, reason: 'no_twitch' });
+    }
+
+    // Vérifier si le stream Twitch est en ligne
+    const twitchStatus = await verifyTwitchUsername(user.twitchUsername);
+
+    // Si on a pu vérifier et que le compte existe, on check s'il stream
+    if (twitchStatus.valid && twitchStatus.exists) {
+      // Pour vraiment savoir si quelqu'un stream, on doit utiliser l'API Twitch streams
+      const isLive = await checkTwitchLive(user.twitchUsername);
+      return res.json({
+        isOnline: isLive,
+        twitchUsername: user.twitchUsername,
+        checkedAt: new Date().toISOString()
+      });
+    }
+
+    res.json({ isOnline: false, reason: 'twitch_not_verified' });
+  } catch (error) {
+    console.error('Check online error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Fonction pour vérifier si un stream Twitch est en ligne
+async function checkTwitchLive(username) {
+  const clientId = process.env.TWITCH_CLIENT_ID;
+  const clientSecret = process.env.TWITCH_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    // Sans API Twitch, on ne peut pas savoir
+    return false;
+  }
+
+  try {
+    // Obtenir un token
+    const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'client_credentials'
+      })
+    });
+
+    if (!tokenResponse.ok) return false;
+    const tokenData = await tokenResponse.json();
+
+    // Vérifier si le stream est en ligne
+    const streamResponse = await fetch(
+      `https://api.twitch.tv/helix/streams?user_login=${encodeURIComponent(username)}`,
+      {
+        headers: {
+          'Client-ID': clientId,
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      }
+    );
+
+    if (!streamResponse.ok) return false;
+    const streamData = await streamResponse.json();
+
+    // Si data contient des éléments, le stream est en ligne
+    return streamData.data && streamData.data.length > 0;
+  } catch (error) {
+    console.error('Erreur check Twitch live:', error);
+    return false;
+  }
+}
 
 // Profil public d'un utilisateur
 router.get('/:id', async (req, res) => {

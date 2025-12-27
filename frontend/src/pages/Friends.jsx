@@ -14,6 +14,7 @@ export default function Friends() {
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('friends'); // friends, requests, search
+  const [onlineStatus, setOnlineStatus] = useState({}); // {friendId: true/false}
 
   useEffect(() => {
     if (user) {
@@ -22,6 +23,32 @@ export default function Friends() {
       fetchSentRequests();
     }
   }, [user]);
+
+  // Vérifier le statut en ligne des amis
+  useEffect(() => {
+    if (friends.length > 0) {
+      checkOnlineStatus();
+      // Revérifier toutes les 30 secondes
+      const interval = setInterval(checkOnlineStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [friends]);
+
+  const checkOnlineStatus = async () => {
+    const statuses = {};
+    for (const friend of friends) {
+      try {
+        const response = await fetch(`${API_URL}/api/users/${friend.id}/online`);
+        if (response.ok) {
+          const data = await response.json();
+          statuses[friend.id] = data.isOnline;
+        }
+      } catch (error) {
+        console.error('Erreur check online:', error);
+      }
+    }
+    setOnlineStatus(statuses);
+  };
 
   const getToken = () => localStorage.getItem('token');
 
@@ -246,18 +273,33 @@ export default function Friends() {
               {friends.map((friend) => (
                 <div
                   key={friend.id}
-                  className="bg-gray-800 rounded-xl p-4 flex items-center justify-between"
+                  className={`bg-gray-800 rounded-xl p-4 flex items-center justify-between ${
+                    onlineStatus[friend.id] ? 'border-l-4 border-green-500' : ''
+                  }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-2xl">
-                      {friend.xboxAvatar ? (
-                        <img src={friend.xboxAvatar} alt="" className="w-full h-full rounded-full" />
-                      ) : (
-                        '👤'
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                        {friend.xboxAvatar ? (
+                          <img src={friend.xboxAvatar} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          '👤'
+                        )}
+                      </div>
+                      {/* Point vert si en ligne */}
+                      {onlineStatus[friend.id] && (
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse" title="En train de jouer!"></div>
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg">{friend.username}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg">{friend.username}</h3>
+                        {onlineStatus[friend.id] && (
+                          <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                            🎮 En jeu
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-gray-400 space-x-3">
                         {friend.xboxGamertag && (
                           <span>🎮 {friend.xboxGamertag}</span>
